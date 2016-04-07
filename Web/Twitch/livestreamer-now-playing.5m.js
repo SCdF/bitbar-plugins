@@ -1,11 +1,10 @@
-#!/usr/bin/env /Users/scdf/.nvm/versions/node/v5.4.0/bin/node
-// TODO: ^^ change this to where node should be, and fix my local install
+#!/usr/bin/env /usr/local/bin/node
 
-// <bitbar.title>Twitch Now Playing</bitbar.title>
-// <bitbar.version>v0.5</bitbar.version>
+// <bitbar.title>Twitch Following</bitbar.title>
+// <bitbar.version>v1.0</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
-// <bitbar.desc>Shows which streamers you follow are live.</bitbar.desc>
+// <bitbar.desc>Shows the live channels that you follow and lets you watc them with livestreamer. Based on play-with-livestreamer</bitbar.desc>
 // <bitbar.image>https://i.imgur.com/PznEQCt.png</bitbar.image>
 // <bitbar.dependencies>node, livestreamer</bitbar.dependencies>
 
