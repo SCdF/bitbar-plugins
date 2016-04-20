@@ -15,15 +15,12 @@ UPDATES=$(/usr/local/bin/brew outdated --verbose);
 
 UPDATE_COUNT=$(echo "$UPDATES" | grep -c '[^[:space:]]');
 
-if [ "$UPDATE_COUNT" = "0" ];
-then
-  echo "✔ | dropdown=false"
-else
+if [ "$UPDATE_COUNT" != "0" ]; then
   echo "↑$UPDATE_COUNT | dropdown=false"
-fi
 
-echo "---";
-if [ -n "$UPDATES" ]; then
-  echo "Upgrade all | bash=/usr/local/bin/brew param1=upgrade terminal=false refresh=true"
-  echo "$UPDATES" | awk '{print $0 " | terminal=false refresh=true bash=/usr/local/bin/brew param1=upgrade param2=" $1}'
+  echo "---";
+  if [ -n "$UPDATES" ]; then
+    echo "Upgrade all | bash=/usr/local/bin/brew param1=upgrade terminal=false refresh=true"
+    echo "$UPDATES" | awk '{print $0 " | terminal=false refresh=true bash=/usr/local/bin/brew param1=upgrade param2=" $1}'
+  fi
 fi
