@@ -1,11 +1,11 @@
 #!/usr/bin/env /usr/local/bin/node
 
 // <bitbar.title>Twitch Following</bitbar.title>
-// <bitbar.version>v1.0</bitbar.version>
+// <bitbar.version>v1.5</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
-// <bitbar.desc>Shows the live channels that you follow and lets you watc them with livestreamer. Based on play-with-livestreamer</bitbar.desc>
-// <bitbar.image>https://i.imgur.com/PznEQCt.png</bitbar.image>
+// <bitbar.desc>Shows which channels you follow are live, what they're playing, for how long etc. Lets you watch them with livestreamer and open the chat in your browser. Based on the play-with-livestreamer bitbar plugin. Requires a Twitch account.</bitbar.desc>
+// <bitbar.image>https://i.imgur.com/dhscE7r.png</bitbar.image>
 // <bitbar.dependencies>node, livestreamer</bitbar.dependencies>
 
 var LIVESTREAMER_PATH = '/usr/local/bin/livestreamer';
@@ -13,8 +13,6 @@ var LIVESTREAMER_CONFIG_PATH = process.env.HOME + '/.config/livestreamer/config'
 var AUTH_PROP_KEY = 'twitch-oauth-token';
 var ACCESS_TOKEN = readAccessToken();
 
-// TODO put more effort into icon so it looks perfect on normal and retina
-//      (as opposed to perfect on retina and meh on normal)
 var TWITCH_ICON_36_RETINA =
     "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAABYlAAAWJQFJUiTw" +
     "AAA5pGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlk" +
@@ -329,13 +327,17 @@ function outputForStream(stream) {
         ' param1=', channel.url.replace('http://', '')].join('');
     var openChat = [
         'href=https://twitch.tv/', channel.name,'/chat?popout='].join('');
-    // TODO work out where to put channel status
     return  [channel.display_name, ' | ', startLivestreamer, '\n',
              '--', '📺 livestream | ', startLivestreamer, '\n',
              '--', '👥 chat | ', openChat, '\n',
              '-----\n',
-             // '--', channel.status, '| size=11 length=30 \n',
+             '--', channel.status, '| color=grey size=10 length=30 \n',
              '--', '👤 ', stream.viewers, ', live for ', timeLive, '| size=10\n'].join('');
+}
+
+function endOutput() {
+    console.log('---');
+    console.log('Refresh | refresh=true');
 }
 
 function handleResponse(body) {
@@ -361,6 +363,7 @@ function handleResponse(body) {
     }
 
     console.log('---\n' + outputs.join('\n---\n'));
+    endOutput();
 }
 
 if (ACCESS_TOKEN) {
@@ -386,4 +389,6 @@ if (ACCESS_TOKEN) {
     console.log('💔');
     console.log('---');
     console.log('Click to authenticate livestreamer | terminal=false bash=' + LIVESTREAMER_PATH + ' param1=--twitch-oauth-authenticate');
+    endOutput();
 }
+
