@@ -17,7 +17,7 @@
 STORAGE_FILE = ENV['HOME'] + '/hacker_news_data.txt'
 STORAGE_TIME_OUT = 600 # file refresh in seconds
 NUMBER_OF_NEWS = 12
-TITLE_LIMIT = 60 # character limit for title
+TITLE_LIMIT = 50 # character limit for title
 
 require 'net/http'
 require 'json'
@@ -28,8 +28,8 @@ def file_time_out?(file)
 end
 
 def refresh_store
-  file = File.open(STORAGE_FILE, 'r')
-  fetch_remote if file_time_out?(file)
+  file = File.exist?(STORAGE_FILE) ? File.open(STORAGE_FILE, 'r') : File.new(STORAGE_FILE, 'w')
+  fetch_remote if file.size == 0 || file_time_out?(file)
   file.close
 end
 
@@ -78,7 +78,6 @@ end
 def fetch_store
   file = File.open(STORAGE_FILE, 'r')
   Marshal.load(file.read)
-  # if file not present
 rescue Errno::ENOENT
   return []
 ensure
@@ -103,7 +102,7 @@ end
 
 def print(s)
   puts "#{s[:title]} | href=#{s[:url]} color=black"
-  puts "Score: #{s[:score]} Comments: #{s[:descendants]} | color=#FF6600"
+  puts "Score: #{s[:score]} Comments: #{s[:descendants]} | href=#{'https://news.ycombinator.com/item?id=' + s[:id].to_s} color=#FF6600"
   puts '---'
 end
 
@@ -111,9 +110,13 @@ begin
   refresh_store
   entries = fetch_store
 
-  headline = entries[headline_news_no]
-  print_title(headline[:title])
-  puts '---'
+  if entries.length > 0
+    headline = entries[headline_news_no]
+    print_title(headline[:title])
+    puts '---'
+  end
 
   entries.each { |e| print(e) }
+rescue StandardError => msg
+  puts 'Error occured, please refresh bitbar! >' + msg.to_s
 end
