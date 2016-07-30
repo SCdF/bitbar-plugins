@@ -12,8 +12,8 @@
 
 // Go here: https://habitica.com/#/options/settings/api
 // And put your values in these vars below!
-let USER_ID = 'YOUR_USER_ID_HERE';
-let API_TOKEN = 'YOUR_TOKEN_HERE';
+const USER_ID = 'YOUR_USER_ID_HERE';
+const API_TOKEN = 'YOUR_TOKEN_HERE';
 
 const HABITICA_ICON =
   'iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAACXBIWXMAABYlAAAWJQFJUiTwAA' +
@@ -398,6 +398,10 @@ const outputIncompleteDailies = function(dailies) {
       ' param2=scoreup param3=' + task._id);
   });
 };
+
+if (USER_ID === 'YOUR_USER_ID_HERE' || API_TOKEN === 'YOUR_TOKEN_HERE') {
+  return failure('Please configure the plugin with your userid and token');
+}
 
 get('status')
 .then(result => {
