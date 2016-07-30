@@ -1,7 +1,7 @@
 #!/usr/bin/env /usr/local/bin/node
 
 // <bitbar.title>Habitica</bitbar.title>
-// <bitbar.version>v0.1</bitbar.version>
+// <bitbar.version>v0.3</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
 // <bitbar.desc>Allows you to manage your Habitica tasks. Just dailies for now. See: habitica.com</bitbar.desc>
@@ -312,15 +312,51 @@ const HABITICA_ICON =
   'lgg7G1rra7ICAlgQ3FRmq71KYa70e2UCUJzfxwNZqaKzgNcybPmrsa1+bBqg/7+gZbB/BwBXfQ' +
   'a0r0oBWwAAAABJRU5ErkJggg==';
 
+//   ================================================================================================
+//   ===     =====    ====  =======  ===      ===        =====  =====  =======  ==        ===      ==
+//   ==  ===  ===  ==  ===   ======  ==  ====  =====  =======    ====   ======  =====  =====  ====  =
+//   =  ========  ====  ==    =====  ==  ====  =====  ======  ==  ===    =====  =====  =====  ====  =
+//   =  ========  ====  ==  ==  ===  ===  ==========  =====  ====  ==  ==  ===  =====  ======  ======
+//   =  ========  ====  ==  ===  ==  =====  ========  =====  ====  ==  ===  ==  =====  ========  ====
+//   =  ========  ====  ==  ====  =  =======  ======  =====        ==  ====  =  =====  ==========  ==
+//   =  ========  ====  ==  =====    ==  ====  =====  =====  ====  ==  =====    =====  =====  ====  =
+//   ==  ===  ===  ==  ===  ======   ==  ====  =====  =====  ====  ==  ======   =====  =====  ====  =
+//   ===     =====    ====  =======  ===      ======  =====  ====  ==  =======  =====  ======      ==
+//   ================================================================================================
+
+// NB: DEBUG on means refreshing post-action doesn't work
+const DEBUG = false;
+
+const UNCHECKED = '◻️';
+const CHECKED = '☑️';
+const HEALTH = '💗';
+const EXP = '⭐';
+const MAGIC = '🔥';
+
+const ACTIONS = {
+  COMPLETE_TASK: 'completeTask',
+  UNCOMPLETE_TASK: 'uncompleteTask',
+  COMPLETE_CHECKLIST_ITEM: 'completeChecklistItem',
+  UNCOMPLETE_CHECKLIST_ITEM: 'uncompleteCheckItem'
+};
+
 const failure = function(reason) {
   console.log('☹');
   console.log('---');
   console.log(reason);
 };
 
-if (!USER_ID || !API_TOKEN) {
-  return failure('Please edit habitica.js and add your user id and api token');
-}
+//   ========================================================================
+//   =  ====  =====  =====      ====    ==        ==    ====     ======  ====
+//   =  ====  ====    ====  ===  ====  ======  ======  ====  ===  ====    ===
+//   =  ====  ===  ==  ===  ====  ===  ======  ======  ===  =========  ==  ==
+//   =  ====  ==  ====  ==  ===  ====  ======  ======  ===  ========  ====  =
+//   =        ==  ====  ==      =====  ======  ======  ===  ========  ====  =
+//   =  ====  ==        ==  ===  ====  ======  ======  ===  ========        =
+//   =  ====  ==  ====  ==  ====  ===  ======  ======  ===  ========  ====  =
+//   =  ====  ==  ====  ==  ===  ====  ======  ======  ====  ===  ==  ====  =
+//   =  ====  ==  ====  ==      ====    =====  =====    ====     ===  ====  =
+//   ========================================================================
 
 const https = require('https');
 
@@ -359,30 +395,44 @@ const get = function(endpoint) {
   return request('GET', endpoint);
 };
 
-const now = new Date();
-const days = ["su", "m", "t", "w", "th", "f", "s"];
-const relevantDaily = function(task) {
-  if (task.type !== 'daily' || task.completed) {
-    return false;
-  }
+//   =====================================================================
+//   ====  =======     ===        ==    ====    ====  =======  ===      ==
+//   ===    =====  ===  =====  ======  ====  ==  ===   ======  ==  ====  =
+//   ==  ==  ===  ===========  ======  ===  ====  ==    =====  ==  ====  =
+//   =  ====  ==  ===========  ======  ===  ====  ==  ==  ===  ===  ======
+//   =  ====  ==  ===========  ======  ===  ====  ==  ===  ==  =====  ====
+//   =        ==  ===========  ======  ===  ====  ==  ====  =  =======  ==
+//   =  ====  ==  ===========  ======  ===  ====  ==  =====    ==  ====  =
+//   =  ====  ===  ===  =====  ======  ====  ==  ===  ======   ==  ====  =
+//   =  ====  ====     ======  =====    ====    ====  =======  ===      ==
+//   =====================================================================
 
-  return task.repeat[days[now.getDay()]];
-};
+const scoreTask = (id, direction) => request('POST', 'tasks/'+id+'/score/'+direction);
+const completeTask = (id) => scoreTask(id, 'up');
 
-const scoreup = function(id) {
-  return request('POST', 'tasks/'+id+'/score/up');
-};
+const completeChecklistItem = (taskId, checklistItemId) =>
+  request('POST', 'tasks/'+taskId+'/checklist/'+checklistItemId+'/score');
 
 const processArguments = function() {
   const action = process.argv[2];
 
   switch (action) {
-    case 'scoreup':
+    case ACTIONS.COMPLETE_TASK:
       const id = process.argv[3];
       if (id) {
-        return scoreup(process.argv[3]);
+        return completeTask(process.argv[3]);
       } else {
-        throw Error('scoreup requires an id');
+        throw Error(ACTIONS.COMPLETE_TASK + ' requires an id');
+      }
+      break;
+    case ACTIONS.COMPLETE_CHECKLIST_ITEM:
+      const taskId = process.argv[3],
+            checklistItemId = process.argv[4];
+
+      if (taskId && checklistItemId) {
+        return completeChecklistItem(taskId, checklistItemId);
+      } else {
+        throw Error(ACTIONS.COMPLETE_CHECKLIST_ITEM + ' missing params');
       }
       break;
     default:
@@ -390,15 +440,83 @@ const processArguments = function() {
   }
 };
 
+//   ==============================================
+//   =  ==========    =====      ===    ====     ==
+//   =  =========  ==  ===   ==   ===  ====  ===  =
+//   =  ========  ====  ==  ====  ===  ===  =======
+//   =  ========  ====  ==  =========  ===  =======
+//   =  ========  ====  ==  =========  ===  =======
+//   =  ========  ====  ==  ===   ===  ===  =======
+//   =  ========  ====  ==  ====  ===  ===  =======
+//   =  =========  ==  ===   ==   ===  ====  ===  =
+//   =        ====    =====      ===    ====     ==
+//   ==============================================
+
+const now = new Date();
+const days = ['su', 'm', 't', 'w', 'th', 'f', 's'];
+
+const dailyForToday = (task) =>
+  task.type === 'daily' &&
+  task.repeat[days[now.getDay()]];
+const completed = (task) => task.completed;
+const incomplete = (task) => !completed(task);
+
+//   ============================================================
+//   ===    ====  ====  ==        ==       ===  ====  ==        =
+//   ==  ==  ===  ====  =====  =====  ====  ==  ====  =====  ====
+//   =  ====  ==  ====  =====  =====  ====  ==  ====  =====  ====
+//   =  ====  ==  ====  =====  =====  ====  ==  ====  =====  ====
+//   =  ====  ==  ====  =====  =====       ===  ====  =====  ====
+//   =  ====  ==  ====  =====  =====  ========  ====  =====  ====
+//   =  ====  ==  ====  =====  =====  ========  ====  =====  ====
+//   ==  ==  ===   ==   =====  =====  ========   ==   =====  ====
+//   ===    =====      ======  =====  =========      ======  ====
+//   ============================================================
+
+const outputAction = function(action, params) {
+  params = Array.prototype.slice.call(arguments).slice(1);
+  return ['terminal='+DEBUG+' refresh=true bash=' + process.argv[0],
+          'param1=' + process.argv[1],
+          'param2=' + action
+         ].concat(params.map((p, i) => 'param'+(i+3)+'='+p))
+         .join(' ');
+};
+
 const outputIncompleteDailies = function(dailies) {
-  console.log('Dailies');
+  console.log('Dailies|color=black size=11');
 
   dailies.forEach(task => {
-    console.log('◻️ ' + task.text + '| terminal=false refresh=true bash=' + process.argv[0] +
-      ' param1=' + process.argv[1] +
-      ' param2=scoreup param3=' + task._id);
+    console.log([UNCHECKED, task.text, '|', outputAction(ACTIONS.COMPLETE_TASK, task._id)].join(' '));
+    task.checklist.forEach(item => {
+      console.log(
+        ['--', (completed(item) ? CHECKED : UNCHECKED), item.text, '|',
+         outputAction(ACTIONS.COMPLETE_CHECKLIST_ITEM, task._id, item.id)].join(' '));
+    });
   });
 };
+
+const outputProfile = function(userData) {
+  console.log(userData.profile.name +
+    ', lvl ' + userData.stats.lvl + ' ' +
+    (n => n[0].toUpperCase() + n.slice(1))(userData.stats.class),
+    '|color=black');
+  const smallFont = '| color=black size=10';
+  console.log([HEALTH, Math.ceil(userData.stats.hp), '/', userData.stats.maxHealth, smallFont].join(' '));
+  console.log([EXP, Math.ceil(userData.stats.exp), '/', userData.stats.toNextLevel, smallFont].join(' '));
+  console.log([MAGIC, Math.ceil(userData.stats.mp), '/', userData.stats.maxMP, smallFont].join(' '));
+};
+
+//   ==============================================
+//   =        ==  ==========    ====  ====  ====  =
+//   =  ========  =========  ==  ===  ====  ====  =
+//   =  ========  ========  ====  ==  ====  ====  =
+//   =  ========  ========  ====  ==  ====  ====  =
+//   =      ====  ========  ====  ==   ==    ==  ==
+//   =  ========  ========  ====  ===  ==    ==  ==
+//   =  ========  ========  ====  ===  ==    ==  ==
+//   =  ========  =========  ==  =====    ==    ===
+//   =  ========        ====    =======  ====  ====
+//   ==============================================
 
 if (USER_ID === 'YOUR_USER_ID_HERE' || API_TOKEN === 'YOUR_TOKEN_HERE') {
   return failure('Please configure the plugin with your userid and token');
@@ -414,18 +532,30 @@ get('status')
   if (process.argv.length > 2) {
     return processArguments();
   } else {
-    return get('tasks/user')
-    .then(results => {
-      const dailies = results.data.filter(relevantDaily);
+    return Promise.all([
+      get('tasks/user'),
+      get('user')])
+    .then(([tasks, user]) => {
+      const incompleteDailies = tasks.data
+        .filter(dailyForToday)
+        .filter(incomplete);
 
-      if (dailies.length) {
-        console.log(dailies.length + '|image="' + HABITICA_ICON + "'\n");
+      if (incompleteDailies.length) {
+        console.log(incompleteDailies.length + '|image="' + HABITICA_ICON + "'\n");
         console.log('---');
-
-        outputIncompleteDailies(dailies);
       } else {
         console.log('|templateImage="' + HABITICA_ICON+ '"');
+        console.log('---');
       }
+
+      if (incompleteDailies.length) {
+        outputIncompleteDailies(incompleteDailies);
+      }
+
+      console.log('---');
+      outputProfile(user.data);
+      console.log('---');
+      console.log('Go to website|href="https://habitica.com"');
     });
   }
 })
