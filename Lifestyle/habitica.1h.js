@@ -1,10 +1,10 @@
 #!/usr/bin/env /usr/local/bin/node
 
 // <bitbar.title>Habitica</bitbar.title>
-// <bitbar.version>v0.3</bitbar.version>
+// <bitbar.version>v1.0</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
-// <bitbar.desc>Allows you to manage your Habitica tasks. Just dailies for now. See: habitica.com</bitbar.desc>
+// <bitbar.desc>Allows you to manage your Habitica tasks, habits and to-dos. See: habitica.com</bitbar.desc>
 // <bitbar.image>http://i.imgur.com/CUO445t.png</bitbar.image>
 // <bitbar.dependencies>node6</bitbar.dependencies>
 
@@ -333,6 +333,9 @@ const HEALTH = '💗';
 const EXP = '⭐';
 const MAGIC = '🔥';
 
+const SCORE_UP   = '➕';
+const SCORE_DOWN = '➖';
+
 const ACTIONS = {
   COMPLETE_TASK: 'completeTask',
   UNCOMPLETE_TASK: 'uncompleteTask',
@@ -452,14 +455,37 @@ const processArguments = function() {
 //   =        ====    =====      ===    ====     ==
 //   ==============================================
 
-const now = new Date();
+const dayOfWeek = new Date().getDay();
+const now = Date.now();
+const tz = new Date().getTimezoneOffset();
 const days = ['su', 'm', 't', 'w', 'th', 'f', 's'];
 
-const dailyForToday = (task) =>
-  task.type === 'daily' &&
-  task.repeat[days[now.getDay()]];
-const completed = (task) => task.completed;
-const incomplete = (task) => !completed(task);
+const relevant = task => {
+  switch (task.frequency) {
+    case 'weekly':
+      return task.repeat[days[dayOfWeek]];
+    case 'daily':
+      let startDateLocal = new Date(task.startDate).getTime() - (1000 * 60 * tz);
+      let msDifferent = Math.abs(Date.now() - startDateLocal);
+      let daysDifferent = Math.floor(msDifferent / (1000 * 60 * 60 * 24));
+
+      return daysDifferent % task.everyX === 0;
+    default:
+      throw Error('Cannot handle task.frequency of ' + task.frequency);
+  }
+};
+const daily = task => task.type === 'daily';
+const habit = task => task.type === 'habit';
+const todo = task => task.type === 'todo';
+const completed = task => task.completed;
+const incomplete = task => !completed(task);
+
+// presumes that habitica never screws up and always contains all the ids
+// we need
+const order = (correctOrder, unorderedItems) =>
+  correctOrder
+    .map(oItem => unorderedItems.find(item => item._id === oItem))
+    .filter(i => i); // identity function, removes undefined
 
 //   ============================================================
 //   ===    ====  ====  ==        ==       ===  ====  ==        =
@@ -473,7 +499,10 @@ const incomplete = (task) => !completed(task);
 //   ===    =====      ======  =====  =========      ======  ====
 //   ============================================================
 
-const outputAction = function(action, params) {
+const sep = () => console.log('---');
+const title = text => console.log(text + '|size=10');
+
+const action = function(action, params) {
   params = Array.prototype.slice.call(arguments).slice(1);
   return ['terminal='+DEBUG+' refresh=true bash=' + process.argv[0],
           'param1=' + process.argv[1],
@@ -482,23 +511,38 @@ const outputAction = function(action, params) {
          .join(' ');
 };
 
-const outputIncompleteDailies = function(dailies) {
-  console.log('Dailies|color=black size=11');
+const outputTasks = function(titleName, tasks) {
+  title(titleName);
 
-  dailies.forEach(task => {
-    console.log([UNCHECKED, task.text, '|', outputAction(ACTIONS.COMPLETE_TASK, task._id)].join(' '));
+  tasks.forEach(task => {
+    console.log([UNCHECKED, task.text, '|', action(ACTIONS.COMPLETE_TASK, task._id)].join(' '));
     task.checklist.forEach(item => {
       console.log(
         ['--', (completed(item) ? CHECKED : UNCHECKED), item.text, '|',
-         outputAction(ACTIONS.COMPLETE_CHECKLIST_ITEM, task._id, item.id)].join(' '));
+         action(ACTIONS.COMPLETE_CHECKLIST_ITEM, task._id, item.id)].join(' '));
     });
   });
 };
 
+const outputHabits = function(habits) {
+  title('Habits');
+
+  habits.forEach(habit => {
+    if (habit.up) {
+      console.log([SCORE_UP, habit.text, '|', action(ACTIONS.COMPLETE_TASK, habit._id)].join(' '));
+    }
+    if (habit.down) {
+      console.log([SCORE_DOWN, habit.text, '|', action(ACTIONS.UNCOMPLETE_TASK, habit._id)].join(' '));
+    }
+  });
+};
+
 const outputProfile = function(userData) {
+  title('Profile');
+
   console.log(userData.profile.name +
-    ', lvl ' + userData.stats.lvl + ' ' +
-    (n => n[0].toUpperCase() + n.slice(1))(userData.stats.class),
+    ' <lvl ' + userData.stats.lvl + ' ' +
+    (n => n[0].toUpperCase() + n.slice(1))(userData.stats.class) + '>',
     '|color=black');
   const smallFont = '| color=black size=10';
   console.log([HEALTH, Math.ceil(userData.stats.hp), '/', userData.stats.maxHealth, smallFont].join(' '));
@@ -536,25 +580,48 @@ get('status')
       get('tasks/user'),
       get('user')])
     .then(([tasks, user]) => {
-      const incompleteDailies = tasks.data
-        .filter(dailyForToday)
-        .filter(incomplete);
+      const dailies = order(
+        user.data.tasksOrder.dailys,
+        tasks.data
+          .filter(daily)
+          .filter(relevant)
+          .filter(incomplete));
 
-      if (incompleteDailies.length) {
-        console.log(incompleteDailies.length + '|image="' + HABITICA_ICON + "'\n");
-        console.log('---');
+      const habits = order(
+        user.data.tasksOrder.habits,
+        tasks.data
+          .filter(habit));
+
+      const todos = order(
+        user.data.tasksOrder.todos,
+        tasks.data
+          .filter(todo)
+          .filter(incomplete));
+
+      if (dailies.length) {
+        console.log(dailies.length + '|image="' + HABITICA_ICON + "'\n");
       } else {
         console.log('|templateImage="' + HABITICA_ICON+ '"');
-        console.log('---');
       }
 
-      if (incompleteDailies.length) {
-        outputIncompleteDailies(incompleteDailies);
+      if (dailies.length) {
+        sep();
+        outputTasks('Dailies', dailies);
       }
 
-      console.log('---');
+      if (habits.length) {
+        sep();
+        outputHabits(habits);
+      }
+
+      if (todos.length) {
+        sep();
+        outputTasks('To-Dos', todos);
+      }
+
+      sep();
       outputProfile(user.data);
-      console.log('---');
+      sep();
       console.log('Go to website|href="https://habitica.com"');
     });
   }
