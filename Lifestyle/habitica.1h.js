@@ -500,6 +500,22 @@ const order = (correctOrder, unorderedItems) =>
 const sep = () => console.log('---');
 const title = text => console.log(text + '|size=10');
 
+const FILLED = '🌕';
+const UNFILLED = '🌑';
+const FILLEDISH = ['🌘','🌗','🌖'];
+const progressBar = function(n, total, charLength) {
+  charLength = charLength || 10;
+
+  const progress = (n / total) * charLength;
+  const ish = progress % 1;
+
+  const filled = Array(Math.floor(progress) + 1).join(FILLED);
+  const middle = ish ? FILLEDISH[Math.ceil(FILLEDISH.length * ish) - 1] : false;
+  const unfilled = Array(charLength - Math.floor(progress) + (middle ? 0 : 1)).join(UNFILLED);
+
+  return filled + (middle ? middle : '') + unfilled;
+};
+
 const action = function(action, params) {
   params = Array.prototype.slice.call(arguments).slice(1);
   return ['terminal='+DEBUG+' refresh=true bash=' + process.argv[0],
@@ -527,25 +543,31 @@ const outputHabits = function(habits) {
 
   habits.forEach(habit => {
     if (habit.up) {
-      console.log([SCORE_UP, habit.text, '|', action(ACTIONS.COMPLETE_TASK, habit._id)].join(' '));
+      console.log([SCORE_UP, habit.text, '|', action(SCORE_TASK, habit._id, 'up')].join(' '));
     }
     if (habit.down) {
-      console.log([SCORE_DOWN, habit.text, '|', action(ACTIONS.UNCOMPLETE_TASK, habit._id)].join(' '));
+      console.log([SCORE_DOWN, habit.text, '|', action(SCORE_TASK, habit._id, 'down')].join(' '));
     }
   });
 };
 
 const outputProfile = function(userData) {
-  title('Profile');
-
-  console.log(userData.profile.name +
+  title(userData.profile.name +
     ' <lvl ' + userData.stats.lvl + ' ' +
-    (n => n[0].toUpperCase() + n.slice(1))(userData.stats.class) + '>',
-    '|color=black');
-  const smallFont = '| color=black size=10';
-  console.log([HEALTH, Math.ceil(userData.stats.hp), '/', userData.stats.maxHealth, smallFont].join(' '));
-  console.log([EXP, Math.ceil(userData.stats.exp), '/', userData.stats.toNextLevel, smallFont].join(' '));
-  console.log([MAGIC, Math.ceil(userData.stats.mp), '/', userData.stats.maxMP, smallFont].join(' '));
+    (n => n[0].toUpperCase() + n.slice(1))(userData.stats.class) + '>');
+
+  const font = '| color=black size=10 font=Monaco';
+
+  const hp = Math.ceil(userData.stats.hp),
+        xp = Math.ceil(userData.stats.exp),
+        mp = Math.ceil(userData.stats.mp),
+        maxHp = userData.stats.maxHealth,
+        maxXp = userData.stats.toNextLevel,
+        maxMp = userData.stats.maxMP;
+
+  console.log([HEALTH, progressBar(hp, maxHp), hp, '/', maxHp, font].join(' '));
+  console.log([EXP, progressBar(xp, maxXp), xp, '/', maxXp, font].join(' '));
+  console.log([MAGIC, progressBar(mp, maxMp), mp, '/', maxMp, font].join(' '));
 };
 
 //   ==============================================
