@@ -1,7 +1,7 @@
 #!/usr/bin/env /usr/local/bin/node
 
 // <bitbar.title>Habitica</bitbar.title>
-// <bitbar.version>v1.0</bitbar.version>
+// <bitbar.version>v1.1</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
 // <bitbar.desc>Allows you to manage your Habitica tasks, habits and to-dos. See: habitica.com</bitbar.desc>
@@ -336,12 +336,8 @@ const MAGIC = '🔥';
 const SCORE_UP   = '➕';
 const SCORE_DOWN = '➖';
 
-const ACTIONS = {
-  COMPLETE_TASK: 'completeTask',
-  UNCOMPLETE_TASK: 'uncompleteTask',
-  COMPLETE_CHECKLIST_ITEM: 'completeChecklistItem',
-  UNCOMPLETE_CHECKLIST_ITEM: 'uncompleteCheckItem'
-};
+const SCORE_TASK = 'scoreTask';
+const SCORE_CHECKLIST_ITEM = 'scoreChecklistItem';
 
 const failure = function(reason) {
   console.log('☹');
@@ -377,7 +373,7 @@ const options = function(method, endpoint) {
 
 const request = function(method, endpoint) {
   return new Promise((resolve, reject) => {
-    var req = https.request(options(method, endpoint), (res) => {
+    let req = https.request(options(method, endpoint), (res) => {
       if (res.statusCode !== 200) {
         console.log(res);
         return reject('HTTP'+res.statusCode+' when '+method+'ing ['+endpoint+']');
@@ -410,34 +406,36 @@ const get = function(endpoint) {
 //   =  ====  ====     ======  =====    ====    ====  =======  ===      ==
 //   =====================================================================
 
-const scoreTask = (id, direction) => request('POST', 'tasks/'+id+'/score/'+direction);
-const completeTask = (id) => scoreTask(id, 'up');
+const scoreTask = (taskId, direction) => request('POST', 'tasks/'+taskId+'/score/'+direction);
 
-const completeChecklistItem = (taskId, checklistItemId) =>
+const scoreChecklistItem = (taskId, checklistItemId) =>
   request('POST', 'tasks/'+taskId+'/checklist/'+checklistItemId+'/score');
 
 const processArguments = function() {
   const action = process.argv[2];
 
   switch (action) {
-    case ACTIONS.COMPLETE_TASK:
-      const id = process.argv[3];
-      if (id) {
-        return completeTask(process.argv[3]);
+    case SCORE_TASK: {
+      const taskId = process.argv[3],
+            direction = process.argv[4];
+      if (taskId && direction) {
+        return scoreTask(taskId, direction);
       } else {
-        throw Error(ACTIONS.COMPLETE_TASK + ' requires an id');
+        throw Error(SCORE_TASK + ' requires an id and a direction');
       }
       break;
-    case ACTIONS.COMPLETE_CHECKLIST_ITEM:
+    }
+    case SCORE_CHECKLIST_ITEM: {
       const taskId = process.argv[3],
             checklistItemId = process.argv[4];
 
       if (taskId && checklistItemId) {
-        return completeChecklistItem(taskId, checklistItemId);
+        return scoreChecklistItem(taskId, checklistItemId);
       } else {
-        throw Error(ACTIONS.COMPLETE_CHECKLIST_ITEM + ' missing params');
+        throw Error(SCORE_CHECKLIST_ITEM + ' missing params');
       }
       break;
+    }
     default:
       throw Error('Unsupported action ' + action);
   }
@@ -515,11 +513,11 @@ const outputTasks = function(titleName, tasks) {
   title(titleName);
 
   tasks.forEach(task => {
-    console.log([UNCHECKED, task.text, '|', action(ACTIONS.COMPLETE_TASK, task._id)].join(' '));
+    console.log([UNCHECKED, task.text, '|', action(SCORE_TASK, task._id, 'up')].join(' '));
     task.checklist.forEach(item => {
       console.log(
         ['--', (completed(item) ? CHECKED : UNCHECKED), item.text, '|',
-         action(ACTIONS.COMPLETE_CHECKLIST_ITEM, task._id, item.id)].join(' '));
+         action(SCORE_CHECKLIST_ITEM, task._id, item.id)].join(' '));
     });
   });
 };
@@ -574,7 +572,7 @@ get('status')
 })
 .then(() => {
   if (process.argv.length > 2) {
-    return processArguments();
+    return processArguments().then(console.log);
   } else {
     return Promise.all([
       get('tasks/user'),
