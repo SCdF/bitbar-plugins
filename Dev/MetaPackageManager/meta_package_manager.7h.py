@@ -1,60 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# <bitbar.title>Package Manager</bitbar.title>
-# <bitbar.version>v1.5</bitbar.version>
+# <bitbar.title>Meta Package Manager</bitbar.title>
+# <bitbar.version>v1.9.0</bitbar.version>
 # <bitbar.author>Kevin Deldycke</bitbar.author>
 # <bitbar.author.github>kdeldycke</bitbar.author.github>
-# <bitbar.desc>List package updates available from Homebrew, Cask, Python's pip2 and pip3, Node's npm, Atom's apm and Rebuy's gem. Allows individual or full upgrades (if available).</bitbar.desc>
-# <bitbar.dependencies>python,homebrew,cask,pip,npm,apm,gem</bitbar.dependencies>
+# <bitbar.desc>List package updates from several managers.</bitbar.desc>
+# <bitbar.dependencies>python</bitbar.dependencies>
 # <bitbar.image>https://i.imgur.com/CiQpQ42.png</bitbar.image>
-# <bitbar.abouturl>https://github.com/kdeldycke/dotfiles/blob/master/dotfiles-osx/.bitbar/package_manager.7h.py</bitbar.abouturl>
+# <bitbar.abouturl>https://github.com/kdeldycke/meta-package-manager</bitbar.abouturl>
 
 """
-Changelog
-=========
-
-1.5 (2016-07-25)
-----------------
-* Add support for [mas](https://github.com/argon/mas)
-* Don't show all stderr as err (check return code for error state)
-
-1.4 (2016-07-10)
-----------------
-* Don't attempt to parse empty lines
-* Check for linked npm packages
-* Support System or Homebrew Ruby Gems (with proper sudo setup)
-
-1.3 (2016-07-09)
-----------------
-
-* Add changelog.
-* Add reference to package manager's issues.
-* Force Cask update before evaluating available packages.
-* Add sample of command output as version parsing can be tricky.
-
-1.2 (2016-07-08)
-----------------
-
-* Add support for both pip2 and pip3, Node's npm, Atom's apm, Ruby's gem.
-  Thanks @tresni.
-* Fixup brew cask checking. Thanks @tresni.
-* Don't die on errors. Thanks @tresni.
-
-1.1 (2016-07-07)
-----------------
-
-* Add support for Python's pip.
-
-1.0 (2016-07-05)
-----------------
-
-* Initial public release.
-* Add support for Homebrew and Cask.
-
-0.0 (2016-07-05)
------------------
-
-* First commit.
+Default update cycle is set to 7 hours so we have a chance to get user's
+attention once a day. Higher frequency might ruin the system as all checks are
+quite resource intensive, and Homebrew might hit GitHub's API calls quota.
 """
 
 from __future__ import print_function, unicode_literals
@@ -62,19 +20,31 @@ from __future__ import print_function, unicode_literals
 import json
 import os
 import re
+import sys
 from operator import methodcaller
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen, call
 
-
-# TODO: add cleanup commands.
+# OS X does not put /usr/local/bin or /opt/local/bin in the PATH for GUI apps.
+# For some package managers this is a problem. Additioanlly Homebrew and
+# Macports are using different pathes.  So, to make sure we can always get to
+# the necessary binaries, we overload the path.  Current preference order would
+# equate to Homebrew, Macports, then System.
+os.environ['PATH'] = ':'.join(['/usr/local/bin',
+                               '/usr/local/sbin',
+                               '/opt/local/bin',
+                               '/opt/local/sbin',
+                               os.environ.get('PATH', '')])
 
 
 class PackageManager(object):
     """ Generic class for a package manager. """
 
+    cli = None
+
     def __init__(self):
         # List all available updates and their versions.
         self.updates = []
+        self.error = None
 
     @property
     def name(self):
@@ -94,11 +64,12 @@ class PackageManager(object):
         """ Run a shell command, return the output and keep error message.
         """
         self.error = None
-        process = Popen(args, stdout=PIPE, stderr=PIPE)
+        process = Popen(
+            args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         output, error = process.communicate()
         if process.returncode != 0 and error:
-            self.error = error
-        return output
+            self.error = error.decode('utf-8')
+        return output.decode('utf-8')
 
     def sync(self):
         """ Fetch latest versions of installed packages.
@@ -125,6 +96,12 @@ class PackageManager(object):
     def update_all_cli(self):
         """ Return a bitbar-compatible full-CLI to update all packages. """
         raise NotImplementedError
+
+    def _update_all_cmd(self):
+        return '{} upgrade {}'.format(sys.argv[0], self.__class__.__name__)
+
+    def update_all_cmd(self):
+        pass
 
 
 class Homebrew(PackageManager):
@@ -211,6 +188,8 @@ class Cask(Homebrew):
             flux 37.3, 37.2, 37.1, 36.8, 36.6
             gimp 2.8.16-x86_64
             java 1.8.0_92-b14
+            prey
+            ubersicht
 
             $ brew cask info aerial
             aerial: 1.2beta5
@@ -229,6 +208,24 @@ class Cask(Homebrew):
             https://github.com/caskroom/homebrew-cask/blob/master/Casks/firefox.rb
             ==> Contents
               Firefox.app (app)
+
+            $ brew cask info prey
+            prey: 1.5.1
+            Prey
+            https://preyproject.com
+            Not installed
+            https://github.com/caskroom/homebrew-cask/blob/master/Casks/prey.rb
+            ==> Contents
+              prey-mac-1.5.1-x86.pkg (pkg)
+
+            $ brew cask info ubersicht
+            ubersicht: 1.0.42
+            Übersicht
+            http://tracesof.net/uebersicht
+            Not installed
+            https://github.com/caskroom/homebrew-cask/blob/master/Casks/ubersicht.rb
+            ==> Contents
+              Übersicht.app (app)
         """
         # `brew cask update` is just an alias to `brew update`. Perform the
         # action anyway to make it future proof.
@@ -243,9 +240,11 @@ class Cask(Homebrew):
         for installed_pkg in output.strip().split('\n'):
             if not installed_pkg:
                 continue
-            name, versions = installed_pkg.split(' ', 1)
+            infos = installed_pkg.split(' ', 1)
+            name = infos[0]
 
             # Use heuristics to guess installed version.
+            versions = infos[1] if len(infos) > 1 else ''
             versions = sorted([
                 v.strip() for v in versions.split(',') if v.strip()])
             if len(versions) > 1 and 'latest' in versions:
@@ -286,7 +285,13 @@ class Cask(Homebrew):
 
         See: https://github.com/caskroom/homebrew-cask/issues/4678
         """
-        return
+        return self.bitbar_cli_format(self._update_all_cmd())
+
+    def update_all_cmd(self):
+        self.sync()
+        for package in self.updates:
+            call("{} cask install {}".format(self.cli, package['name']),
+                 shell=True)
 
 
 class Pip(PackageManager):
@@ -297,6 +302,7 @@ class Pip(PackageManager):
         Sample of pip output:
 
             $ pip list --outdated
+            ccm (2.1.8, /Users/kdeldycke/ccm) - Latest: 2.1.11 [sdist]
             coverage (4.0.3) - Latest: 4.1 [wheel]
             IMAPClient (0.13) - Latest: 1.0.1 [wheel]
             Logbook (0.10.1) - Latest: 1.0.0 [sdist]
@@ -310,6 +316,9 @@ class Pip(PackageManager):
 
         regexp = re.compile(r'(\S+) \((.*)\) - Latest: (\S+)')
         for outdated_pkg in output.split('\n'):
+            if not outdated_pkg:
+                continue
+
             name, installed_info, latest_version = regexp.match(
                 outdated_pkg).groups()
 
@@ -334,7 +343,13 @@ class Pip(PackageManager):
         This work around the lack of proper full upgrade command in Pip.
         See: https://github.com/pypa/pip/issues/59
         """
-        return
+        return self.bitbar_cli_format(self._update_all_cmd())
+
+    def update_all_cmd(self):
+        self.sync()
+        for package in self.updates:
+            call("{} install -U {}".format(self.cli, package["name"]),
+                 shell=True)
 
 
 class Pip2(Pip):
@@ -393,7 +408,8 @@ class NPM(PackageManager):
                 continue
             self.updates.append({
                 'name': package,
-                'installed_version': values['current'],
+                'installed_version':
+                    values['current'] if 'current' in values else '',
                 'latest_version': values['latest']
             })
 
@@ -572,7 +588,7 @@ def print_menu():
         print("{} {} package{}".format(
             len(manager.updates),
             manager.name,
-            's' if len(manager.updates) > 1 else ''))
+            's' if len(manager.updates) != 1 else ''))
 
         if manager.update_all_cli() and manager.updates:
             print("Upgrade all | {} terminal=false refresh=true".format(
@@ -585,4 +601,21 @@ def print_menu():
                     cli=manager.update_cli(pkg_info['name']),
                     **pkg_info)).encode('utf-8'))
 
-print_menu()
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", nargs='?', default='menu')
+    parser.add_argument("options", nargs='*')
+
+    args = parser.parse_args()
+
+    if args.command == 'upgrade':
+        try:
+            # Instantiate class from global definitions
+            cl = globals()[args.options[0]]()
+            cl.update_all_cmd()
+        except:
+            # Do nothing if we can't load the class
+            pass
+    else:
+        print_menu()
