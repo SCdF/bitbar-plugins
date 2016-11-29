@@ -375,7 +375,6 @@ const request = function(method, endpoint) {
   return new Promise((resolve, reject) => {
     let req = https.request(options(method, endpoint), (res) => {
       if (res.statusCode !== 200) {
-        console.log(res);
         return reject('HTTP'+res.statusCode+' when '+method+'ing ['+endpoint+']');
       }
 
@@ -504,6 +503,8 @@ const FILLED = '🌕';
 const UNFILLED = '🌑';
 const FILLEDISH = ['🌘','🌗','🌖'];
 const progressBar = function(n, total, charLength) {
+  n = Math.max(n, 0); // Health can be negative
+
   charLength = charLength || 10;
 
   const progress = (n / total) * charLength;
@@ -558,9 +559,9 @@ const outputProfile = function(userData) {
 
   const font = '| color=black size=10 font=Monaco';
 
-  const hp = Math.ceil(userData.stats.hp),
-        xp = Math.ceil(userData.stats.exp),
-        mp = Math.ceil(userData.stats.mp),
+  const hp = Math.floor(userData.stats.hp),
+        xp = Math.floor(userData.stats.exp),
+        mp = Math.floor(userData.stats.mp),
         maxHp = userData.stats.maxHealth,
         maxXp = userData.stats.toNextLevel,
         maxMp = userData.stats.maxMP;
@@ -568,6 +569,42 @@ const outputProfile = function(userData) {
   console.log([HEALTH, progressBar(hp, maxHp), hp, '/', maxHp, font].join(' '));
   console.log([EXP, progressBar(xp, maxXp), xp, '/', maxXp, font].join(' '));
   console.log([MAGIC, progressBar(mp, maxMp), mp, '/', maxMp, font].join(' '));
+};
+
+const icon = function(numDailies, isSleeping) {
+  if (isSleeping) {
+    console.log('Zzz|templateImage="' + HABITICA_ICON+ '"');
+  } else {
+    if (numDailies) {
+      console.log(numDailies + '|image="' + HABITICA_ICON + "'\n");
+    } else {
+      console.log('|templateImage="' + HABITICA_ICON+ '"');
+    }
+  }
+};
+
+const output = function(dailies, habits, todos, userData) {
+    icon(dailies.length, userData.preferences.sleep);
+
+    if (dailies.length) {
+      sep();
+      outputTasks('Dailies', dailies);
+    }
+
+    if (habits.length) {
+      sep();
+      outputHabits(habits);
+    }
+
+    if (todos.length) {
+      sep();
+      outputTasks('To-Dos', todos);
+    }
+
+    sep();
+    outputProfile(userData);
+    sep();
+    console.log('Go to website|href="https://habitica.com"');
 };
 
 //   ==============================================
@@ -594,7 +631,7 @@ get('status')
 })
 .then(() => {
   if (process.argv.length > 2) {
-    return processArguments().then(console.log);
+    return processArguments().then((r) => console.log(JSON.stringify(r, null, 2)));
   } else {
     return Promise.all([
       get('tasks/user'),
@@ -618,31 +655,7 @@ get('status')
           .filter(todo)
           .filter(incomplete));
 
-      if (dailies.length) {
-        console.log(dailies.length + '|image="' + HABITICA_ICON + "'\n");
-      } else {
-        console.log('|templateImage="' + HABITICA_ICON+ '"');
-      }
-
-      if (dailies.length) {
-        sep();
-        outputTasks('Dailies', dailies);
-      }
-
-      if (habits.length) {
-        sep();
-        outputHabits(habits);
-      }
-
-      if (todos.length) {
-        sep();
-        outputTasks('To-Dos', todos);
-      }
-
-      sep();
-      outputProfile(user.data);
-      sep();
-      console.log('Go to website|href="https://habitica.com"');
+      output(dailies, habits, todos, user.data);
     });
   }
 })
