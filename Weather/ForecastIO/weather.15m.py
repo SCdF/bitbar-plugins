@@ -2,39 +2,25 @@
 # -*- coding: utf-8 -*-
 
 # <bitbar.title>Weather</bitbar.title>
-# <bitbar.version>v3.0.0</bitbar.version>
+# <bitbar.version>v3.1.0</bitbar.version>
 # <bitbar.author>Daniel Seripap</bitbar.author>
 # <bitbar.author.github>seripap</bitbar.author.github>
-# <bitbar.desc>Detailed weather plugin powered by forecast.io with auto location lookup. Supports metric and imperial units. Needs API key from http://developer.forecast.io.</bitbar.desc>
+# <bitbar.desc>Detailed weather plugin powered by DarkSky with auto location lookup. Supports metric and imperial units. Needs API key from https://darksky.net/dev/.</bitbar.desc>
 # <bitbar.image>https://cloud.githubusercontent.com/assets/683200/16276583/ff267f36-387c-11e6-9fd0-fc57b459e967.png</bitbar.image>
 # <bitbar.dependencies>python</bitbar.dependencies>
 
 import json
 import urllib2
 import textwrap
-import base64
 from random import randint
 
-api_key = '' # get yours at https://developer.forecast.io
+api_key = '' # get yours at https://darksky.net/dev
 units = '' # set to si for metric, leave blank for imperial
 
 def auto_loc_lookup():
   try:
-    location = urllib2.urlopen('http://ipinfo.io/json')
+    location = urllib2.urlopen('https://ipinfo.io/json')
     return json.load(location)
-  except urllib2.URLError:
-    return False
-
-def get_image(loc):
-  try:
-    image = {}
-    location = loc.split(',');
-    url = 'http://forecast.io/atlas/precipitation.png?latitude=' +  location[0] + '&longitude=' +  location[1] + '&theta=0&phi=-30&zoom=0.05&width=320&height=213&border_scale=0.75&label_stroke_col=FFFFFFCC&label_scale=1&label_count=2&city_label=1'
-    opener = urllib2.build_opener()
-    opener.addheaders = [('Referer', 'http://forecast.io/atlas/')]
-    image['url'] = url
-    image['encoded'] = base64.b64encode(opener.open(url).read())
-    return image
   except urllib2.URLError:
     return False
 
@@ -57,25 +43,25 @@ def calculate_bearing(degree):
 
 def get_wx_icon(icon_code):
   if icon_code == 'clear-day':
-    icon = '☀️'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAmVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjHWqVAAAAMnRSTlMAAQIDBAUGCAoMFxgZHR4hIiU0NTc4QEFFRlhZZmeGh4qLra6xtL/AwdDR1tnb3Pf4+RkSsW4AAACvSURBVHgBJczZWqJgAADQw7+AouOMU2lGtrgYQhny/g/X9+XtuTgUhGDdZ0IC01JpO1YSCsnrJUabnWz+PiGohwM58m/4jEiW94uP4drWd8coIJuN56bpxoVQBrmiPUN3Av24i9cnVaUZ0uZ5bbXd5Gtzg7Afe3DqoGup8u+zuKW1jCAe/9ftMJz+PCwlxK/vv4TEYZgJTN7msv2jEC8vkgJJNW6V8hSkQO5XQqDwAzg9DY/cb+9eAAAAAElFTkSuQmCC'
   elif icon_code == 'clear-night':
-    icon = '☀'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAmVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjHWqVAAAAMnRSTlMAAQIDBAUGBxMVFycoKSosMDE/QEpLTFhkZ2prdHZ6ipagoayusLS5u7zGyeXs8vn6+7VdeBQAAACGSURBVHjabU+HDoJQDLxKVRwo4saNgnv1/z/Oiy9PEkOTjrtuVEugqrUSiosDjwnHu3wdekZQP9m1eNjIMbT7d4d+Y32wmBrZEI0mZraCAtTFXUQxtRSCL5GSENy2DrOlawnQswGn+aGvCO1nzJxfe7bL0ebQ8rBJdli2IL/Txbm/5wTV8gEi7AeTMvh8mQAAAABJRU5ErkJggg=='
   elif icon_code == 'rain':
-    icon = '🌧'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAA5klEQVQoFQXBMSuFYRgA0PO870cGlMFgUEpEBiuKgUGMdhmU5AfIbvYHlNGghCIpLBaUWSmDQSbdgdW9j3MChDRkWbdH4+Z8OvGl6AAFu9Kvb+nPq5a0iQoNtqRtRZg3DPakRVSgZR8AVeDKMypMSdNohKqgC6vSLHDgS0UAoOLBPQVLLrR1SQAUXJikwY9BFI3URlEUTGgBG9IMoGoAC9I2BI6lS6fWwJhrL9IRggDrbr1JT26kD4dWQEAIwIpzZ3YARQDQaBQwAbpVoAI6OqDfuz53QhsoAAgM6DGCBAAAAqN6EQD/vPo8tMz6bZYAAAAASUVORK5CYII='
   elif icon_code == 'snow':
-    icon = '🌨'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAA40lEQVQoFQXBsSqFYRgA4Of9vv+4AHWUIhORwYqiMIjZKoMSNyC72Q0oo0EZTh1ZZFGSsigpE0omncKK1/MECGnQsj43xsx6c+Jd8QcU7ErfPqQfj3rSJio02JK2FWHOMNiTFlGBnn0AVIEzt6gwKU2hEaqCFlalGeDAu4oAQMWVSwqWdPxqSQAUdEzQ4EsbRSP9oigKxvWADWkaUDWAeWkbAsdS16k1MOrcnXSEIMC6C0/Sua704tAKCAgBeJau7QCKAKCFfvceAC0VAKBgxBAIAACggAVLCAAACAz49KqNAvwDhLU7zZRMOIUAAAAASUVORK5CYII='
   elif icon_code == 'sleet':
-    icon = '🌨'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAA6klEQVQoFQXBry+FYRgA0PO873cVqiCoxgQVG4FwN1E3wWaiZIImEzXJBGN2N6aYovjxBxjdJLuBZO7ncU6AkMZ0DXkwYd67Mx+KP6BgR/r2KQ286EsbqNBgU9pShAXjYFdaQgX69gFQBa49ocK0NINGqAo6WJHmgAMfKgIAFffuKFjW0+pIABT0TNHgyyiKRmpRFAWT+sC6NAuoGsCitAWBU+nKhVUw4dKzdIwgwJpbr9KjGymd6IIIBBKs2DDi3IxtrepPAjSqAHBoHAENYCB0tEL4NawFKCAwak+rNcCbHwAgMOYIBQDgH8ebRS21EV3JAAAAAElFTkSuQmCC'
   elif icon_code == 'wind':
-    icon = '💨'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAflBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCtoPsAAAAKXRSTlMAAQIDBAUOGx8kJjE7PkVHS05camtvdneHiY+su8DBw8rU1dzm8PH6/PnPEUAAAABvSURBVHgBlc3XDoJgDEDh0+HAvQc4FBHt+7+gI8T8XvJdnKRpk9KSKykB7G/uzjMSRj9ijTRrc2MftweYvxnAJKa9oNPcjw+zYSzOd+pTvtnmxzquI3bPy4BlUVZVWawyEJyEKvaJu4J+y++l0MYLmKUFUAQQSQkAAAAASUVORK5CYII='
   elif icon_code == 'fog':
-    icon = '(FOG)'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAA7UlEQVQoFQXBzyqEURwA0HPv/SazYGGh7NiwUzOlFHv5s1BWnmAW8wBW3gHlGSyUPIBkQcNkY+ElhEgyDb7v5xyAAiCBpAAJJGHJptqGZR+OHaGogYwD4dnIQN+J8KSLAgXrQg9tQMeDsIJChXN3SEhaWuDGACWDSa9oq2SNxhROLaKmQl+YAwBcG6KQwNCPLXvOdG3bdyWsokBG24Uw9iKEd/fWUAAymDWj6FiQQQEAAAAgkVDUDu36VIQsNCpvdrxKFQK3Rr5lAFljDAkwb1otAULlUSNrIONS+BNCCL9CDxUJMKGtkQAh+dLAP69nSf8xfn8mAAAAAElFTkSuQmCC'
   elif icon_code == 'cloudy':
-    icon = '☁'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAA70lEQVQoFQXBLUuDURgA0HPvs1cFtVhFHAaTWMVgGgODySKCQQSTSZPFbrEMi8Hgb1gzCDOINruw5EdUGcJg23s9ByAECAFCAECAEGDaFAiAwKaebz/uPfoz0LOBIAsTR56MnDkVBo6dGHt2YCJgVXEOAOBC0QQ63hAqDSE0VDLeXQKfrlEBgAo3vmBXsYIMADIWFftZ26u+UAOAWvjwopWNVAhJApAkgRlDWop1QEiSAKwp2tBVbJs3C2DOgh1FF0juFGMjhzL2DNWKWwkSaGq7Uvz6VnRsWQIpIckmYFlL9qAPQq0kQJYxBgSKGv4BLfNBIGx3s8kAAAAASUVORK5CYII='
   elif icon_code == 'partly-cloudy-day':
-    icon = '⛅'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAABCUlEQVQoFQXBLUjcYRwA4Od9714F56ZYLAbbmAjC4YIoWIzaLNo8kAmbzW5WYTCDa5v25YnBE0SYTTHIYTEsCSIs+MFO/z+fpwYggaKyb0RLUSFlQBI+mNDBG73oWPZeANTRFCYxZBCfhHEAsoJVDZvuPdjSMI0CFAAbwmcrwiZAlvDWjrYTYQGsuDfk2O+sEuZdW3LgBlu+K0LNs3NndPsjHOoHs376569HXwG+qQyDog6KO6dGfUHhxjq6JZD1YNuREaFJ3ZMBhJBkL/5jDJem3MGaMIMu0IVFYRqQYFf4iD4N9Huyh7qaDPBLaLkV2kLbOyQgySo0zblwbsqVHzqyCoAEACAD8Aph71BRnuBbowAAAABJRU5ErkJggg=='
   elif icon_code == 'partly-cloudy-night':
-    icon = '⛅'
+    icon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAA6UlEQVQoFQXBvyqFYRwA4Od93885AxLDySAMkpiUXAByA7LZbTJYnc4iF+HPxC1YLCYGYVJSslDUCYtTzvD9PE8CAJBl1GoAAKAAKEABAFlt0rY1XZ8SACRZE5tC17uwiwJkGTCkdggOhGUUCmiZsu9VWMW4N/cmkGHGnRB6Tl0IGzp+QYZhPx6t2NACbaHvBA1gT18CNCTsCJfIwJEHNBUJSYVjT0iQ3Zoz4g8JYQDPRhHAkjANGFAw6NsZKqD4cGXIrAXQFl6MIQMs+hJCOHcjdFTIQJLVmtb1zNvSdeAaWQ1AAQBUEgD/3uo/+JyzvikAAAAASUVORK5CYII='
   else:
     icon = ''
 
@@ -96,7 +82,7 @@ def get_wx():
 
   try:
     if 'loc' in location:
-      wx = json.load(urllib2.urlopen('https://api.forecast.io/forecast/' + api_key + '/' + location['loc'] + '?units=' + units + "&v=" + str(randint(0,100))))
+      wx = json.load(urllib2.urlopen('https://api.darksky.net/forecast/' + api_key + '/' + location['loc'] + '?units=' + units + "&v=" + str(randint(0,100))))
     else:
       return False
   except urllib2.HTTPError:
@@ -163,7 +149,6 @@ def get_wx():
 
     if 'loc' in location:
       weather_data['loc'] = str(location['loc'])
-      weather_data['image'] = get_image(location['loc']);
 
   except KeyError:
     return False
@@ -175,7 +160,7 @@ def render_wx():
   if api_key == '':
     print 'Missing API key'
     print '---'
-    print 'Get an API Key | href=https://developer.forecast.io'
+    print 'Get an API Key | href=https://darksky.net/dev'
     return False
 
   weather_data = get_wx()
@@ -187,16 +172,17 @@ def render_wx():
     return False
 
   if 'icon' in weather_data and 'temperature' in weather_data:
-    print weather_data['icon'] + ' ' + weather_data['temperature']
+    print weather_data['temperature'] + ' | templateImage=' + weather_data['icon']
   else:
     print 'N/A'
 
   print '---'
 
+
   if 'city' in weather_data and 'region' in weather_data:
-    print weather_data['city'] + ', ' + weather_data['region'] + ' | href=http://forecast.io/#/f/' + weather_data['loc']
+    print weather_data['city'] + ', ' + weather_data['region'] + ' | href=https://darksky.net/' + weather_data['loc']
   elif 'country' in weather_data:
-    print weather_data['country'] + ' | href=http://forecast.io/#/f/' + weather_data['loc']
+    print weather_data['country'] + ' | href=https://darksky.net/' + weather_data['loc']
 
   if 'condition' in weather_data and 'feels_like' in weather_data:
     print weather_data['condition'] + ', Feels Like: ' + weather_data['feels_like']
@@ -206,10 +192,6 @@ def render_wx():
   if 'next_hour' in weather_data:
     print weather_data['next_hour']
     print '---'
-
-  if 'image' in weather_data:
-    if weather_data['image']['encoded']:
-      print '| href=' + weather_data['image']['url'] + '| image=' + weather_data['image']['encoded']
 
   print '---'
 
@@ -233,6 +215,6 @@ def render_wx():
     print 'Pressure: ' + weather_data['pressure']
 
   print '---'
-  print 'Powered by Forecast | href=http://forecast.io'
+  print 'Powered by DarkSky | href=https://darksky.net/poweredby/?ref=bitbarWeather'
 
 render_wx()
