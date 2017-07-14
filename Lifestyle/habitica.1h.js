@@ -327,6 +327,8 @@ const HABITICA_ICON =
 // NB: DEBUG on means refreshing post-action doesn't work
 const DEBUG = false;
 
+const REQUEST_TIMEOUT = 30 * 1000;
+
 const UNCHECKED = '◻️';
 const CHECKED = '☑️';
 const HEALTH = '💗';
@@ -338,12 +340,6 @@ const SCORE_DOWN = '➖';
 
 const SCORE_TASK = 'scoreTask';
 const SCORE_CHECKLIST_ITEM = 'scoreChecklistItem';
-
-const failure = function(reason) {
-  console.log('☹');
-  console.log('---');
-  console.log(reason);
-};
 
 //   ========================================================================
 //   =  ====  =====  =====      ====    ==        ==    ====     ======  ====
@@ -364,6 +360,7 @@ const options = function(method, endpoint) {
     method: method,
     hostname: 'habitica.com',
     path: '/api/v3/' + endpoint,
+    timeout: REQUEST_TIMEOUT,
     headers: {
       'x-api-user': USER_ID,
       'x-api-key': API_TOKEN
@@ -385,7 +382,7 @@ const request = function(method, endpoint) {
     });
 
     req.end();
-    req.on('error', failure);
+    req.on('error', reject);
   });
 };
 
@@ -617,14 +614,23 @@ const output = function(dailies, habits, todos, userData) {
 //   =  ========        ====    =======  ====  ====
 //   ==============================================
 
+const failure = function(reason) {
+  console.log('☹');
+  console.log('---');
+  console.log(reason);
+};
+
 if (USER_ID === 'YOUR_USER_ID_HERE' || API_TOKEN === 'YOUR_TOKEN_HERE') {
   return failure('Please configure the plugin with your userid and token');
 }
 
 get('status')
+.catch(err => {
+  throw new Error('habitica api is down');
+})
 .then(result => {
   if (result.data.status !== 'up') {
-    throw Error('habitica api is down');
+    throw new Error('habitica api is down');
   }
 })
 .then(() => {
