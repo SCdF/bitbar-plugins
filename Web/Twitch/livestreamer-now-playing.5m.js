@@ -23,17 +23,16 @@ const OPTIONS = {
     // The followers you care about. This affects the bitbar tray count,
     // notifications and other stuff.
     //
-    // Leave as undefined to count everyone
+    // Leave as false to count everyone
     // An empty list means no one
-    favourites: undefined
     // Otherwise list twitch stream usernames, as strings or regex.
     // e.g.
     // FAVOURITES: [
     //   'manvsgame',
     //   /evo[0-9]/
     // ],
-    // Would show MANvsGAME as a favourite, along with any of the evo streams
-    FAVOURITES: undefined
+    // Would show MANvsGAME as a favourite, along with any of the evo rooms
+    FAVOURITES: false,
     NOTIFICATIONS: true
 };
 
