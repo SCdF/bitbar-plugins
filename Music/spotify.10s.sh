@@ -50,6 +50,12 @@ case "$1" in
 esac
 
 state=$(tellspotify 'player state as string');
+track=$(tellspotify 'name of current track as string');
+artist=$(tellspotify 'artist of current track as string');
+if [ "$1" = 'lyrics' ]; then
+  osascript -e "do shell script \"open 'https://www.musixmatch.com/search/$track $artist'\""
+  exit
+fi
 
 if [ "$state" = "playing" ]; then
   state_icon=$state_playing
@@ -59,12 +65,10 @@ fi
 
 suffix="..."
 trunc_length=20
-track="$(tellspotify 'name of current track as string')";
 truncated_track=$track
 if [ ${#track} -gt $trunc_length ];then
   truncated_track=${track:0:$trunc_length-${#suffic}}$suffix
 fi
-artist="$(tellspotify 'artist of current track as string')";
 truncated_artist=$artist
 if [ ${#artist} -gt $trunc_length ];then
   truncated_artist=${artist:0:$trunc_length-${#suffic}}$suffix
@@ -85,6 +89,8 @@ echo "$artist | color=#333333"
 echo "Album:| size=9"
 echo "$album | color=#333333"
 
+echo '---'
+echo "🎵 Lyrics | bash='$0' param1='lyrics' terminal=false"
 echo '---'
 
 if [ "$state" = "playing" ]; then
