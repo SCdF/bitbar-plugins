@@ -50,17 +50,20 @@ case "$1" in
 esac
 
 state=$(tellspotify 'player state as string');
-track=$(tellspotify 'name of current track as string');
-artist=$(tellspotify 'artist of current track as string');
-if [ "$1" = 'lyrics' ]; then
-  osascript -e "do shell script \"open 'https://www.musixmatch.com/search/$track $artist'\""
+if [ "$state" = "stopped" ]; then
   exit
-fi
-
-if [ "$state" = "playing" ]; then
+elif [ "$state" = "playing" ]; then
   state_icon=$state_playing
 else
   state_icon=$state_paused
+fi
+
+track=$(tellspotify 'name of current track as string');
+artist=$(tellspotify 'artist of current track as string');
+
+if [ "$1" = 'lyrics' ]; then
+  osascript -e "do shell script \"open 'https://www.musixmatch.com/search/$track $artist'\""
+  exit
 fi
 
 suffix="..."

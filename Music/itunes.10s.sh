@@ -29,10 +29,10 @@ if [ "$1" = 'open' ]; then
 fi
 
 if [ "$(osascript -e 'application "iTunes" is running')" = "false" ]; then
-  echo "♫ | size=12"
-  echo "---"
-  echo "iTunes is not running"
-  echo "Launch iTunes | bash='$0' param1=launch terminal=false"
+  # echo "♫ | size=12"
+  # echo "---"
+  # echo "iTunes is not running"
+  # echo "Launch iTunes | bash='$0' param1=launch terminal=false"
   exit
 fi
 
@@ -65,7 +65,7 @@ else
 fi
 
 state=$(osascript -e '
-try 
+try
   tell application "iTunes"
     with timeout 3 seconds
       player state as string
@@ -73,7 +73,7 @@ try
   end tell
 on error errText
   "not available"
-end try  
+end try
 ');
 if [ "$state" = "not available" ]; then
   echo "♫ | size=12"
@@ -179,7 +179,8 @@ fi
 if [ "$track" != "no track selected" ]; then
     echo "♫ $state_icon $track - $artist | color=$COLOR0 size=12"
 else
-    echo "♫ ◼︎ | color=$COLOR0 size=12"
+    exit
+    # echo "♫ ◼︎ | color=$COLOR0 size=12"
 fi
 
 echo "---"
