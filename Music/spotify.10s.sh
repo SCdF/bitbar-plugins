@@ -55,7 +55,8 @@ if [ "$state" = "stopped" ]; then
 elif [ "$state" = "playing" ]; then
   state_icon=$state_playing
 else
-  state_icon=$state_paused
+  # state_icon=$state_paused
+  exit
 fi
 
 track=$(tellspotify 'name of current track as string');

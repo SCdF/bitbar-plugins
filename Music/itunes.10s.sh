@@ -171,16 +171,9 @@ if [ -f "$tmp_file" ]; then
 fi
 
 if [ "$state" = "playing" ]; then
-  state_icon="▶︎"
+  echo "$track - $artist | color=$COLOR0"
 else
-  state_icon="𝝞𝝞"
-fi
-
-if [ "$track" != "no track selected" ]; then
-    echo "♫ $state_icon $track - $artist | color=$COLOR0 size=12"
-else
-    exit
-    # echo "♫ ◼︎ | color=$COLOR0 size=12"
+  exit
 fi
 
 echo "---"
