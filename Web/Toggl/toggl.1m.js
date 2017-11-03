@@ -10,20 +10,22 @@
 
 // https://toggl.com/app/profile
 // api token is that the bottom of the page
+// TODO: provide a UI to getting this and adding it if it's not setup
+// TODO: store this in the correct config location so this file doesn't have to be edited
 const API_TOKEN='';
 
 const endOutput = () => {
   console.log('---');
   console.log('Refresh | refresh=true');
+  process.exit();
 };
 
 if (!API_TOKEN) {
-  console.log('!!!token needed!!!');
+  console.log('🚨 token needed 🚨');
   console.log('---');
   console.log('Edit this file and fill in the API_TOKEN variable');
   console.log('Get your token from: https://toggl.com/app/profile');
   endOutput();
-  process.exit(1);
 }
 
 const NOW = new Date();
@@ -37,6 +39,8 @@ const outputUnix = unixTime => {
   return `${hours}:${fmt(minutes)}`;
 };
 
+// TODO: alter this so you can pass the considered start day (ie Sunday or Monday)
+//       Might as well be the offset integer, 0 or 1, but in theory could be 0-6
 const startOfWeek = () => {
   const thisWeek = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - NOW.getDay());
   return unix(thisWeek);
@@ -52,6 +56,10 @@ const handleResponse = me => {
     // TODO: deal with partial entries that cross over midnight
     //       (both daily and weekly)
     // TODO: respect configured start of week in me.beginning_of_week
+    // TODO: also calculate by project and display under jump
+    // TODO: allow specific projects to be muted via the menu
+    //       Muting them means they don't contribute to the day / week count
+    //       They should still appear under the jump, but greyed out, with an option to enable them again
 
     let duration;
     if (entry.duration > 0) {
@@ -78,7 +86,6 @@ const handleResponse = me => {
 require('https').get({
   hostname: 'www.toggl.com',
   path: `/api/v8/me?with_related_data=true&since=${startOfWeek()}`,
-  // path: '/api/v8/me?with_related_data=true&since=1509321600',
   auth: `${API_TOKEN}:api_token`
 }, res => {
   let body = '';
