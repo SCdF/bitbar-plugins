@@ -72,8 +72,7 @@ const AVATARS = {
 const randomItem = array => array[Math.floor(Math.random() * array.length)];
 const randomAvatar = () => randomItem([].concat(...Object.values(AVATARS)));
 
-// TODO: work out where this should go
-const CONFIG_FILE = '/tmp/toggl.json';
+const CONFIG_FILE = `${process.env.HOME}/.toggl.json`;
 const config = (() => {
   if (fs.existsSync(CONFIG_FILE)) {
     try {
@@ -87,12 +86,6 @@ const config = (() => {
   };
 })();
 
-// api token is that the bottom of the page
-//          ->https://toggl.com/app/profile
-// TODO: provide a UI to getting this and adding it if it's not setup
-// TODO: store this in the correct config location so this file doesn't have to be edited
-const API_TOKEN='';
-
 const endOutput = () => {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config));
   console.log('---');
@@ -100,13 +93,15 @@ const endOutput = () => {
   process.exit();
 };
 
-if (!API_TOKEN) {
-  console.log('🚨 token needed 🚨');
+const badApiToken = wrong => {
+  console.log(`🚨 ${wrong ? 'provided api token is wrong' : 'token needed'} 🚨`);
   console.log('---');
-  console.log('Edit this file and fill in the API_TOKEN variable');
-  console.log('Get your token from: https://toggl.com/app/profile');
+  console.log('🖱 Click here to find your token| href=https://toggl.com/app/profile');
+  console.log('It will be at the bottom of the page|size=12');
+  console.log(`Once you've found your token, copy it (CMD+C)|size=12`);
+  console.log(`🤞 I've copied it 🤞|bash=${process.argv[1]} param1=api_token refresh=true terminal=false `);
   endOutput();
-}
+};
 
 const NOW = new Date();
 
@@ -131,7 +126,7 @@ const handleResponse = me => {
   const unixToday = unix(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()));
   let full = 0,
       today = 0;
-  let working = false;
+  let currentlyWorking = false;
   me.data.time_entries.forEach(entry => {
     // TODO: deal with partial entries that cross over midnight
     //       (both daily and weekly)
@@ -146,7 +141,7 @@ const handleResponse = me => {
       duration = entry.duration;
     } else {
       duration = unix(NOW) - unix(new Date(entry.start));
-      working = true;
+      currentlyWorking = true;
     }
 
     full += duration;
@@ -156,7 +151,7 @@ const handleResponse = me => {
   });
 
   // Output times
-  if (!working) {
+  if (!currentlyWorking) {
     process.exit(0);
   }
 
@@ -179,6 +174,11 @@ const input = () => {
   switch (process.argv[2]) {
     case 'avatar': {
       config.avatar = process.argv[3];
+      break;
+    }
+    case 'api_token': {
+      config.apiToken = require('child_process').execSync('pbpaste').toString();
+      break;
     }
   }
 };
@@ -187,8 +187,13 @@ const output = () => {
   require('https').get({
     hostname: 'www.toggl.com',
     path: `/api/v8/me?with_related_data=true&since=${startOfWeek()}`,
-    auth: `${API_TOKEN}:api_token`
+    auth: `${config.apiToken}:api_token`
   }, res => {
+    if (res.statusCode === 403) {
+      badApiToken(true);
+      endOutput();
+    }
+
     let body = '';
     res.on('data', data => body += data);
     res.on('end', () => {
@@ -214,4 +219,7 @@ const output = () => {
 };
 
 input();
+if (!config.apiToken) {
+  badApiToken();
+}
 output();
