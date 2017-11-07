@@ -73,6 +73,8 @@ const randomItem = array => array[Math.floor(Math.random() * array.length)];
 const randomAvatar = () => randomItem([].concat(...Object.values(AVATARS)));
 
 const CONFIG_FILE = `${process.env.HOME}/.toggl.json`;
+
+let configDirty = false;
 const config = (() => {
   if (fs.existsSync(CONFIG_FILE)) {
     try {
@@ -81,13 +83,17 @@ const config = (() => {
   }
 
   // Defaults
+  configDirty = true;
   return {
     avatar: randomAvatar()
   };
 })();
 
 const endOutput = () => {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config));
+  if (configDirty) {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  }
+
   console.log('---');
   console.log('Refresh | refresh=true');
   process.exit();
@@ -127,7 +133,7 @@ const handleResponse = me => {
   let full = 0,
       today = 0;
   let currentlyWorking = false;
-  me.data.time_entries.forEach(entry => {
+  (me.data.time_entries || []).forEach(entry => {
     // TODO: deal with partial entries that cross over midnight
     //       (both daily and weekly)
     // TODO: respect configured start of week in me.beginning_of_week
@@ -135,6 +141,11 @@ const handleResponse = me => {
     // TODO: allow specific projects to be muted via the menu
     //       Muting them means they don't contribute to the day / week count
     //       They should still appear under the jump, but greyed out, with an option to enable them again
+    // TODO: allow for different configurable styled outputs
+    //       e.g., % of goal (8hday/40hrweek)
+    //             hrs from target (weekly target amortised over N days)
+    //       UI would just switch between them, advanced configuration would be
+    //       done manually in config file
 
     let duration;
     if (entry.duration > 0) {
@@ -174,10 +185,12 @@ const input = () => {
   switch (process.argv[2]) {
     case 'avatar': {
       config.avatar = process.argv[3];
+      configDirty = true;
       break;
     }
     case 'api_token': {
       config.apiToken = require('child_process').execSync('pbpaste').toString();
+      configDirty = true;
       break;
     }
   }

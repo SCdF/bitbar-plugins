@@ -8,6 +8,13 @@
 // <bitbar.image>https://i.imgur.com/dhscE7r.png</bitbar.image>
 // <bitbar.dependencies>node, streamlink</bitbar.dependencies>
 
+// TOOD: map response into a datastructure we can both use and store
+//       this helps with DRY, since it removes indirection in the native format
+// TODO: DRY error handling better
+//       DRY usages of :-( everywhere
+//       Work out how to get HTTP code out of request, error cleaner on that
+// TODO: Consider: show the last 24hrs of video from all your favourites
+
 'use strict';
 
 /*jshint esversion: 6 */
@@ -33,7 +40,32 @@ const OPTIONS = {
   // ],
   // Would show MANvsGAME as a favourite, along with any of the evo rooms
   FAVOURITES: false,
-  NOTIFICATIONS: true
+  // False to disable, otherwise specify the maximum number of viewers allowed
+  // to class a streamer as an underdog, and treat them as a favourite.
+  // Only works if FAVOURITES is in use.
+  // FIXME: UNDERDOG currently makes little sense
+  //        When streamers come online they will have a small number of watchers
+  //        We need to detect low watchers but on longer running streams
+  //        And maybe then notify?
+  //        Or just drop the concept?
+  //        Or pick a different metric such as followers?
+  UNDERDOG: false,
+  // False to disable, otherwise specify the minimum number of viewers allowed
+  // to class a streamer as really popular, and treat them as a favourite
+  // Only works if FAVOURITES is in use.
+  // TODO: implement OVERDOG
+  OVERDOG: 10000,
+  // True if you want native OSX notifications when a favourite goes live
+  // (if favourites are disabled notifications will work on everyone)
+  NOTIFICATIONS: true,
+  // True if we want to count the game changing as a new notification
+  NOTIFICATIONS_ON_GAME_CHANGE: true,
+  // True if we want to count a VOD-cast as favourite-worthy
+  // TODO: switching from VOD to live should generate notification
+  //       This will be much easier once we do the TODO at the top of the page
+  //       to map the datastructure, because then notification code can easily
+  //       understand if it's a VOD or not
+  FAVOURITES_WITH_VOD: false
 };
 
 const TWITCH_ICON_36_RETINA =
@@ -343,13 +375,16 @@ function outputForStream(stream) {
     timeLive = timeLive + 'm';
   }
 
+
+  const name = `${!live(stream) ? '[' : ''}${channel.display_name}${!live(stream) ? ']' : ''}`;
+
   return  [
-      `${channel.display_name} | href=https://twitch.tv/${channel.name}`,
-      `--📺 livestream | terminal=false bash=${STREAMLINK_PATH} param1=${channel.url.replace('http://', '')}`,
+      `${name} | href=https://twitch.tv/${channel.name}`,
+      `--📺 ${live(stream) ? 'livestream' : 'VOD'} | terminal=false bash=${STREAMLINK_PATH} param1=${channel.url.replace('http://', '')}`,
       `--👥 chat | href=https://twitch.tv/${channel.name}/chat?popout=`,
       `--👤 chit.chat | href=https://chitchat.ma.pe/${channel.name}`,
       `-----`,
-      isFavourite(streamName(stream)) ? `--${stream.channel.game}|size=10 color=#888888` : undefined,
+      importantStreamer(stream) ? `--${stream.channel.game}|size=10 color=#888888` : undefined,
       `--${channel.status} | color=grey size=10 length=30`,
       `--👤 ${stream.viewers} live for ${timeLive}| size=10`,
       ''].join('\n');
@@ -361,39 +396,75 @@ function endOutput() {
 }
 
 const streamName = stream => stream.channel.name;
-const isFavourite = name => OPTIONS.FAVOURITES && OPTIONS.FAVOURITES.find(f => name.match(f));
-const filterFavourites = streams =>
-  !OPTIONS.FAVOURITES ? streams : streams.filter(stream => isFavourite(streamName(stream)));
+const live = stream => stream.stream_type === 'live';
+const isUnderdog = stream => OPTIONS.FAVOURITES && OPTIONS.UNDERDOG && stream.viewers <= OPTIONS.UNDERDOG;
+const isFavourite = stream =>
+  OPTIONS.FAVOURITES && OPTIONS.FAVOURITES.find(f => streamName(stream).match(f)) &&
+  (OPTIONS.FAVOURITES_WITH_VOD || live(stream));
+const importantStreamer = stream =>
+  isFavourite(stream) || isUnderdog(stream);
 
 function notifications(streams) {
   const TEMP_FILE = '/tmp/livestreamer-now-playing.json';
+  const statusFile = () => {
+    try {
+      return JSON.parse(fs.readFileSync(TEMP_FILE, 'utf8'));
+    } catch (error) {
+      return {
+        live: []
+      };
+    }
+  };
 
   if (fs.existsSync(TEMP_FILE)) {
-    const previous = JSON.parse(fs.readFileSync(TEMP_FILE, 'utf8'));
-    const currentStreamers = filterFavourites(streams).map(streamName);
-    const newStreamers = currentStreamers.filter(streamer => !previous.live.includes(streamer));
+    const status = statusFile();
+    const currentStreamers = streams.filter(importantStreamer);
+    const changedStreams = currentStreamers.filter(stream =>
+      // Just went live
+      !Object.keys(status.live).includes(streamName(stream)) ||
+      // Just changed games
+      (OPTIONS.NOTIFICATIONS_ON_GAME_CHANGE &&
+       status.live[streamName(stream)].game !== stream.channel.game));
 
-    if (newStreamers.length) {
+    if (changedStreams.length) {
       const exec = require('child_process').exec;
-      newStreamers.map(streamer => exec(`osascript -e 'display notification "${streamer} is online" with title "Twitch" sound name "Ping"'`));
+      const safe = text => text.replace(/('|")/, "");
+
+      // TODO: better notification approach
+      //       osascript doesn't let you set the click action
+      //       https://stackoverflow.com/questions/24606225/redirected-to-applescript-editor-on-clicking-apple-notification
+      changedStreams.map(stream =>
+        exec(`osascript -e 'display notification "${safe(stream.channel.status)}" with title "${safe(streamName(stream))} is playing ${safe(stream.channel.game)}" sound name "Ping"'`));
     }
   }
 
   fs.writeFileSync(TEMP_FILE, JSON.stringify({
-    live: streams.map(streamName)
+    live: streams.reduce((live, s) => {
+      live[streamName(s)] = {
+        game: s.channel.game
+      };
+      return live;
+    }, {})
   }));
 }
 
 function handleResponse(body) {
   const streamByGame = {};
 
+  if (!(body && body.streams)) {
+    console.log(':-(');
+    console.log('---');
+    console.log(body);
+    return endOutput();
+  }
+
   const onlineStreams = body.streams.filter(stream => !stream.is_playlist);
 
-  const favouriteStreams = [];
+  const importantStreams = [];
 
   onlineStreams.forEach(stream => {
-    if (isFavourite(streamName(stream))) {
-      return favouriteStreams.push(stream);
+    if (importantStreamer(stream)) {
+      return importantStreams.push(stream);
     }
 
     if (!streamByGame[stream.channel.game]) {
@@ -405,18 +476,19 @@ function handleResponse(body) {
 
   const outputs = [];
 
-  if (favouriteStreams.length) {
-    outputs.push(['Favourites | size=10 color=#888888\n', favouriteStreams.map(outputForStream).join('')].join(''));
+  if (importantStreams.length) {
+    outputs.push(importantStreams.map(outputForStream).join(''));
   }
 
   for (const game in streamByGame) {
-    outputs.push([game, '| size=10 color=#888888\n', streamByGame[game].map(outputForStream).join('')].join(''));
+    outputs.push([game, '| size=10 color=#888888 length=30\n', streamByGame[game].map(outputForStream).join('')].join(''));
   }
 
   if (onlineStreams.length === 0) {
     console.log('|templateImage="'+ TWITCH_ICON_36_RETINA + '"\n');
   } else {
-    let count = filterFavourites(onlineStreams).length || '';
+    const count =
+      (OPTIONS.FAVOURITES ? importantStreams.length : onlineStreams.length) || '';
     console.log(count + '|image="'+ TWITCH_ICON_36_RETINA + '"\n');
   }
 
@@ -431,7 +503,7 @@ function handleResponse(body) {
 try {
   if (ACCESS_TOKEN) {
     const urlHost = 'api.twitch.tv';
-    const urlPath = '/kraken/streams/followed?stream_type=live';
+    const urlPath = '/kraken/streams/followed';
 
     require('https').get({
       hostname: urlHost,
@@ -442,7 +514,22 @@ try {
     }, res => {
       let body = '';
       res.on('data', data => body += data);
-      res.on('end', () => handleResponse(JSON.parse(body)));
+      res.on('end', () => {
+        try {
+          handleResponse(JSON.parse(body));
+        } catch (error) {
+          console.log(':-(');
+          console.log('---');
+          console.log(error);
+          endOutput();
+        }
+      });
+      res.on('error', err => {
+        console.log(':-(');
+        console.log('---');
+        console.log(err);
+        endOutput();
+      });
     });
   } else {
     console.log('💔');
