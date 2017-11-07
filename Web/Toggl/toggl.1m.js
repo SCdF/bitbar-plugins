@@ -189,12 +189,29 @@ const handleResponse = me => {
       const todayWeekday = NOW.getDay();
       const daysLeft = config.daysPerWeek - (todayWeekday - startOfWeekday);
 
-      const weekInUnix = config.daysPerWeek * config.hoursPerDay * 60 * 60;
-      const allButTodaysTime = full - today;
-      const allButTodaysTimeLeft = weekInUnix - allButTodaysTime
-      const timePerDayLeft = Math.round(allButTodaysTimeLeft / daysLeft);
+      const timeInWeek = config.daysPerWeek * config.hoursPerDay * 60 * 60;
 
-      console.log(`${avatar()} ${outputUnix(timePerDayLeft - today)} (${outputUnix(full)})`);
+      const allButTodaysTime = full - today;
+      const allButTodaysTimeLeft = timeInWeek - allButTodaysTime;
+      const timePerDayLeft = Math.round(allButTodaysTimeLeft / daysLeft);
+      const amortisedTimeLeft = timePerDayLeft - today;
+
+      const onTrackTime = (daysLeft - 1) * config.hoursPerDay * 60 * 60;
+      const timeOffTrack = allButTodaysTimeLeft - onTrackTime - today;
+
+      const relativeThreshold = 15 * 60; // TODO: configurable?
+      const showBoth = Math.abs(amortisedTimeLeft - timeOffTrack) > relativeThreshold;
+
+      const [first, second] = amortisedTimeLeft < timeOffTrack ?
+        [amortisedTimeLeft, timeOffTrack] :
+        [timeOffTrack, amortisedTimeLeft];
+
+      if (showBoth) {
+        console.log(`${avatar()} ${outputUnix(first)}${'→'}${outputUnix(second)} (${outputUnix(timeInWeek - full)})`);
+      } else {
+        const average = first + Math.round((second - first) / 2);
+        console.log(`${avatar()} ${outputUnix(average)} (${outputUnix(timeInWeek - full)})`);
+      }
       break;
     }
   }
