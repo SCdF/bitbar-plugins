@@ -85,7 +85,10 @@ const config = (() => {
   // Defaults
   configDirty = true;
   return {
-    avatar: randomAvatar()
+    avatar: randomAvatar(),
+    hoursPerDay: 8,
+    daysPerWeek: 5,
+    style: 'hours'
   };
 })();
 
@@ -113,11 +116,16 @@ const NOW = new Date();
 
 const unix = date => Math.round(date.getTime() / 1000);
 const outputUnix = unixTime => {
+  const negative = (() => {if (unixTime < 0) {
+    unixTime *= -1;
+    return true;
+  }})();
+
   const fmt = x => x.toLocaleString(undefined, {minimumIntegerDigits: 2});
   const hours = Math.floor(unixTime / 60 / 60);
   const minutes = Math.floor(unixTime / 60) - (hours * 60);
 
-  return `${hours}:${fmt(minutes)}`;
+  return `${negative ? '-' : ''}${hours}:${fmt(minutes)}`;
 };
 
 // TODO: alter this so you can pass the considered start day (ie Sunday or Monday)
@@ -141,11 +149,6 @@ const handleResponse = me => {
     // TODO: allow specific projects to be muted via the menu
     //       Muting them means they don't contribute to the day / week count
     //       They should still appear under the jump, but greyed out, with an option to enable them again
-    // TODO: allow for different configurable styled outputs
-    //       e.g., % of goal (8hday/40hrweek)
-    //             hrs from target (weekly target amortised over N days)
-    //       UI would just switch between them, advanced configuration would be
-    //       done manually in config file
 
     let duration;
     if (entry.duration > 0) {
@@ -166,11 +169,38 @@ const handleResponse = me => {
     process.exit(0);
   }
 
-  console.log(`${config.avatar === 'avatar' ?  randomAvatar() : config.avatar} ${outputUnix(today)} (${outputUnix(full)})`);
+  const avatar = () => config.avatar === 'avatar' ?  randomAvatar() : config.avatar;
+
+  switch(config.style) {
+    case 'hours': {
+      console.log(`${avatar()} ${outputUnix(today)} (${outputUnix(full)})`);
+      break;
+    }
+    case 'percentage': {
+      const completeDay = config.hoursPerDay * 60 * 60;
+      const completeWeek = completeDay * config.daysPerWeek;
+      const dayPercent = Math.round((today / completeDay) * 100);
+      const weekPercent = Math.round((full / completeWeek) * 100);
+      console.log(`${avatar()} ${dayPercent}% (${weekPercent}%)`);
+      break;
+    }
+    case 'relative': {
+      const startOfWeekday = 1; // TODO: support using configured day from /me
+      const todayWeekday = NOW.getDay();
+      const daysLeft = config.daysPerWeek - (todayWeekday - startOfWeekday);
+
+      const weekInUnix = config.daysPerWeek * config.hoursPerDay * 60 * 60;
+      const allButTodaysTime = full - today;
+      const allButTodaysTimeLeft = weekInUnix - allButTodaysTime
+      const timePerDayLeft = Math.round(allButTodaysTimeLeft / daysLeft);
+
+      console.log(`${avatar()} ${outputUnix(timePerDayLeft - today)} (${outputUnix(full)})`);
+      break;
+    }
+  }
 };
 
 const avatarChoice = () => {
-  console.log('---');
   console.log(`Change ${config.avatar}`);
   console.log(`--((surprise me))|bash=${process.argv[1]} param1=avatar param2=avatar refresh=true terminal=false size=10`);
   Object.keys(AVATARS).forEach(k => {
@@ -179,6 +209,15 @@ const avatarChoice = () => {
       console.log(`----${v}|bash=${process.argv[1]} param1=avatar param2=${v} refresh=true terminal=false size=32`);
     });
   });
+};
+
+const styleChoice = () => {
+  const current = style => style === config.style ? '✓ ' : '';
+  const link = style => `|bash=${process.argv[1]} param1=style param2=${style} refresh=true terminal=false`;
+  console.log('Change reporting style');
+  console.log(`--${current('hours')}Hours complete${link('hours')}`);
+  console.log(`--${current('percentage')}Percentage complete${link('percentage')}`);
+  console.log(`--${current('relative')}Hours left today${link('relative')}`);
 };
 
 const input = () => {
@@ -190,6 +229,11 @@ const input = () => {
     }
     case 'api_token': {
       config.apiToken = require('child_process').execSync('pbpaste').toString();
+      configDirty = true;
+      break;
+    }
+    case 'style': {
+      config.style = process.argv[3];
       configDirty = true;
       break;
     }
@@ -214,6 +258,7 @@ const output = () => {
         handleResponse(JSON.parse(body));
         console.log('---');
         avatarChoice();
+        styleChoice();
         endOutput();
       } catch (error) {
         console.log(':-(');
