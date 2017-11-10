@@ -86,8 +86,8 @@ const config = (() => {
   configDirty = true;
   return {
     avatar: randomAvatar(),
-    hoursPerDay: 8,
-    daysPerWeek: 5,
+    hoursInDay: 8,
+    daysInWeek: 5,
     style: 'hours'
   };
 })();
@@ -135,6 +135,34 @@ const startOfWeek = () => {
   return unix(thisWeek);
 };
 
+const avatar = () => config.avatar === 'avatar' ?  randomAvatar() : config.avatar;
+
+const outputHeader = (timeDay, timeWeek) => {
+  const relativeThreshold = 60 * 60; // TODO: configurable?
+
+  let daySection; // Output string
+  let dayAmount; // single amount, if possible
+  if (typeof timeDay === 'object') {
+    const max = Math.max(...timeDay);
+    const min = Math.min(...timeDay);
+    if ((max - min) > relativeThreshold) {
+      daySection = `${outputUnix(max)}->${outputUnix(min)}`;
+    } else {
+      dayAmount = min + Math.round((max - min) / 2);
+      daySection = `${outputUnix(dayAmount)}`;
+    }
+  } else {
+    dayAmount = timeDay;
+    daySection = `${outputUnix(dayAmount)}`;
+  }
+
+  if (dayAmount && Math.abs(timeWeek - dayAmount) > relativeThreshold) {
+    console.log(`${avatar()} ${daySection} (${outputUnix(timeWeek)})`);
+  } else {
+    console.log(`${avatar()} ${daySection}`);
+  }
+};
+
 const handleResponse = me => {
   // Calculate times
   const unixToday = unix(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()));
@@ -158,7 +186,10 @@ const handleResponse = me => {
       currentlyWorking = true;
     }
 
-    full += duration;
+    if (unix(new Date(entry.start)) > startOfWeek()) {
+      full += duration;
+    }
+
     if (unix(new Date(entry.start)) > unixToday) {
       today += duration;
     }
@@ -169,16 +200,21 @@ const handleResponse = me => {
     process.exit(0);
   }
 
-  const avatar = () => config.avatar === 'avatar' ?  randomAvatar() : config.avatar;
-
   switch(config.style) {
     case 'hours': {
-      console.log(`${avatar()} ${outputUnix(today)} (${outputUnix(full)})`);
+      outputHeader(today, full);
+      break;
+    }
+    case 'left': {
+      const completeDay = config.hoursInDay * 60 * 60;
+      const completeWeek = completeDay * config.daysInWeek;
+
+      outputHeader(completeDay - today, completeWeek - full);
       break;
     }
     case 'percentage': {
-      const completeDay = config.hoursPerDay * 60 * 60;
-      const completeWeek = completeDay * config.daysPerWeek;
+      const completeDay = config.hoursInDay * 60 * 60;
+      const completeWeek = completeDay * config.daysInWeek;
       const dayPercent = Math.round((today / completeDay) * 100);
       const weekPercent = Math.round((full / completeWeek) * 100);
       console.log(`${avatar()} ${dayPercent}% (${weekPercent}%)`);
@@ -187,31 +223,19 @@ const handleResponse = me => {
     case 'relative': {
       const startOfWeekday = 1; // TODO: support using configured day from /me
       const todayWeekday = NOW.getDay();
-      const daysLeft = config.daysPerWeek - (todayWeekday - startOfWeekday);
+      const daysLeft = config.daysInWeek - (todayWeekday - startOfWeekday);
 
-      const timeInWeek = config.daysPerWeek * config.hoursPerDay * 60 * 60;
+      const timeInWeek = config.daysInWeek * config.hoursInDay * 60 * 60;
 
       const allButTodaysTime = full - today;
       const allButTodaysTimeLeft = timeInWeek - allButTodaysTime;
       const timePerDayLeft = Math.round(allButTodaysTimeLeft / daysLeft);
       const amortisedTimeLeft = timePerDayLeft - today;
 
-      const onTrackTime = (daysLeft - 1) * config.hoursPerDay * 60 * 60;
+      const onTrackTime = (daysLeft - 1) * config.hoursInDay * 60 * 60;
       const timeOffTrack = allButTodaysTimeLeft - onTrackTime - today;
 
-      const relativeThreshold = 15 * 60; // TODO: configurable?
-      const showBoth = Math.abs(amortisedTimeLeft - timeOffTrack) > relativeThreshold;
-
-      const [first, second] = amortisedTimeLeft < timeOffTrack ?
-        [amortisedTimeLeft, timeOffTrack] :
-        [timeOffTrack, amortisedTimeLeft];
-
-      if (showBoth) {
-        console.log(`${avatar()} ${outputUnix(first)}${'→'}${outputUnix(second)} (${outputUnix(timeInWeek - full)})`);
-      } else {
-        const average = first + Math.round((second - first) / 2);
-        console.log(`${avatar()} ${outputUnix(average)} (${outputUnix(timeInWeek - full)})`);
-      }
+      outputHeader([amortisedTimeLeft, timeOffTrack], timeInWeek - full);
       break;
     }
   }
@@ -233,8 +257,9 @@ const styleChoice = () => {
   const link = style => `|bash=${process.argv[1]} param1=style param2=${style} refresh=true terminal=false`;
   console.log('Change reporting style');
   console.log(`--${current('hours')}Hours complete${link('hours')}`);
+  console.log(`--${current('left')}Hours left${link('left')}`);
   console.log(`--${current('percentage')}Percentage complete${link('percentage')}`);
-  console.log(`--${current('relative')}Hours left today${link('relative')}`);
+  console.log(`--${current('relative')}Relative weekly goals${link('relative')}`);
 };
 
 const input = () => {
@@ -260,6 +285,7 @@ const input = () => {
 const output = () => {
   require('https').get({
     hostname: 'www.toggl.com',
+    // NB: since is "edited since", and so isn't really reliable
     path: `/api/v8/me?with_related_data=true&since=${startOfWeek()}`,
     auth: `${config.apiToken}:api_token`
   }, res => {
