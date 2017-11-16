@@ -117,6 +117,7 @@ const NOW = new Date();
 const unix = date => Math.round(date.getTime() / 1000);
 const outputUnix = unixTime => {
   const negative = (() => {if (unixTime < 0) {
+    // TODO: turn red if it's negative
     unixTime *= -1;
     return true;
   }})();
@@ -146,7 +147,7 @@ const outputHeader = (timeDay, timeWeek) => {
     const max = Math.max(...timeDay);
     const min = Math.min(...timeDay);
     if ((max - min) > relativeThreshold) {
-      daySection = `${outputUnix(max)}->${outputUnix(min)}`;
+      daySection = `${outputUnix(min)}->${outputUnix(max)}`;
     } else {
       dayAmount = min + Math.round((max - min) / 2);
       daySection = `${outputUnix(dayAmount)}`;
