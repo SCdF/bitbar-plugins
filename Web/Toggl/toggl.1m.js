@@ -115,7 +115,7 @@ const badApiToken = wrong => {
 const NOW = new Date();
 
 const unix = date => Math.round(date.getTime() / 1000);
-const outputUnix = unixTime => {
+const outputUnix = (unixTime, verbose) => {
   const negative = (() => {if (unixTime < 0) {
     // TODO: turn red if it's negative
     unixTime *= -1;
@@ -126,7 +126,7 @@ const outputUnix = unixTime => {
   const hours = Math.floor(unixTime / 60 / 60);
   const minutes = Math.floor(unixTime / 60) - (hours * 60);
 
-  return `${negative ? '-' : ''}${hours}:${fmt(minutes)}`;
+  return `${negative ? '-' : ''}${hours}${verbose ? ' hours ' : ':'}${fmt(minutes)}${verbose ? ' minutes' : ''}`;
 };
 
 // TODO: alter this so you can pass the considered start day (ie Sunday or Monday)
@@ -164,11 +164,12 @@ const outputHeader = (timeDay, timeWeek) => {
   }
 };
 
-const handleResponse = me => {
+const displayTimes = me => {
   // Calculate times
   const unixToday = unix(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()));
   let full = 0,
       today = 0;
+  const days = [];
   let currentlyWorking = false;
   (me.data.time_entries || []).forEach(entry => {
     // TODO: deal with partial entries that cross over midnight
@@ -189,6 +190,8 @@ const handleResponse = me => {
 
     if (unix(new Date(entry.start)) > startOfWeek()) {
       full += duration;
+      const day = new Date(entry.start).getDay();
+      days[day] = (days[day] || 0) + duration;
     }
 
     if (unix(new Date(entry.start)) > unixToday) {
@@ -240,6 +243,13 @@ const handleResponse = me => {
       break;
     }
   }
+
+  console.log('---');
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  days.forEach((val, day) => {
+    console.log(`${dayNames[day]}:\t${outputUnix(val, true)}`);
+  });
+  console.log(`Σ:\t${outputUnix(full, true)}`);
 };
 
 const avatarChoice = () => {
@@ -299,7 +309,7 @@ const output = () => {
     res.on('data', data => body += data);
     res.on('end', () => {
       try {
-        handleResponse(JSON.parse(body));
+        displayTimes(JSON.parse(body));
         console.log('---');
         avatarChoice();
         styleChoice();
