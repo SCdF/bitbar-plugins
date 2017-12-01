@@ -126,7 +126,11 @@ const outputUnix = (unixTime, verbose) => {
   const hours = Math.floor(unixTime / 60 / 60);
   const minutes = Math.floor(unixTime / 60) - (hours * 60);
 
-  return `${negative ? '-' : ''}${hours}${verbose ? ' hours ' : ':'}${fmt(minutes)}${verbose ? ' minutes' : ''}`;
+  if (verbose) {
+    return `${negative ? '-' : ''}${hours} hours ${minutes} minutes`;
+  } else {
+    return `${negative ? '-' : ''}${hours}:${fmt(minutes)}`;
+  }
 };
 
 // TODO: alter this so you can pass the considered start day (ie Sunday or Monday)
