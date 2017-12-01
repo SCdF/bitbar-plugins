@@ -248,12 +248,14 @@ const displayTimes = me => {
     }
   }
 
-  console.log('---');
-  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  days.forEach((val, day) => {
-    console.log(`${dayNames[day]}:\t${outputUnix(val, true)}`);
-  });
-  console.log(`Σ:\t${outputUnix(full, true)}`);
+  if (days.length > 1) {
+    console.log('---');
+    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    days.forEach((val, day) => {
+      console.log(`${dayNames[day]}:\t${outputUnix(val, true)}`);
+    });
+    console.log(`Σ:\t${outputUnix(full, true)}`);
+  }
 };
 
 const avatarChoice = () => {
