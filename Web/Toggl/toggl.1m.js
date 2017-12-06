@@ -171,10 +171,14 @@ const outputHeader = (timeDay, timeWeek) => {
 const displayTimes = me => {
   // Calculate times
   const unixToday = unix(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()));
+  const completeDay = config.hoursInDay * 60 * 60;
+  const completeWeek = completeDay * config.daysInWeek;
+
   let full = 0,
       today = 0;
   const days = [];
   let currentlyWorking = false;
+
   (me.data.time_entries || []).forEach(entry => {
     // TODO: deal with partial entries that cross over midnight
     //       (both daily and weekly)
@@ -214,9 +218,6 @@ const displayTimes = me => {
       break;
     }
     case 'left': {
-      const completeDay = config.hoursInDay * 60 * 60;
-      const completeWeek = completeDay * config.daysInWeek;
-
       outputHeader(completeDay - today, completeWeek - full);
       break;
     }
@@ -248,13 +249,15 @@ const displayTimes = me => {
     }
   }
 
-  if (days.length > 1) {
+  // Have to filter first before showing length because Monday is idx 1 / length 2
+  if (days.filter(d => !!d).length > 1) {
     console.log('---');
     const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     days.forEach((val, day) => {
       console.log(`${dayNames[day]}:\t${outputUnix(val, true)}`);
     });
     console.log(`Σ:\t${outputUnix(full, true)}`);
+    console.log(`T-:\t${outputUnix(completeWeek - full, true)}`);
   }
 };
 
