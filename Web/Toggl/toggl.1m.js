@@ -9,6 +9,7 @@
 // <bitbar.dependencies>node</bitbar.dependencies>
 const fs = require('fs');
 
+/* jshint -W100 */
 const AVATARS = {
   '👶': ['👶', '👶🏻', '👶🏼', '👶🏽', '👶🏾', '👶🏿'],
   '👦': ['👦', '👦🏻', '👦🏼', '👦🏽', '👦🏾', '👦🏿'],
@@ -69,6 +70,7 @@ const AVATARS = {
   '👰': ['👰', '👰🏻', '👰🏼', '👰🏽', '👰🏾', '👰🏿'],
   '🤵 ': ['🤵', '🤵🏻', '🤵🏼', '🤵🏽', '🤵🏾', '🤵🏿']
 };
+/* jshint +W100 */
 const randomItem = array => array[Math.floor(Math.random() * array.length)];
 const randomAvatar = () => randomItem([].concat(...Object.values(AVATARS)));
 
@@ -151,7 +153,7 @@ const outputHeader = (timeDay, timeWeek) => {
     const max = Math.max(...timeDay);
     const min = Math.min(...timeDay);
     if ((max - min) > relativeThreshold) {
-      daySection = `${outputUnix(min)}->${outputUnix(max)}`;
+      daySection = `${outputUnix(min)}…${outputUnix(max)}`;
     } else {
       dayAmount = min + Math.round((max - min) / 2);
       daySection = `${outputUnix(dayAmount)}`;
@@ -183,10 +185,6 @@ const displayTimes = me => {
     // TODO: deal with partial entries that cross over midnight
     //       (both daily and weekly)
     // TODO: respect configured start of week in me.beginning_of_week
-    // TODO: also calculate by project and display under jump
-    // TODO: allow specific projects to be muted via the menu
-    //       Muting them means they don't contribute to the day / week count
-    //       They should still appear under the jump, but greyed out, with an option to enable them again
 
     let duration;
     if (entry.duration > 0) {
@@ -243,8 +241,9 @@ const displayTimes = me => {
 
       const onTrackTime = (daysLeft - 1) * config.hoursInDay * 60 * 60;
       const timeOffTrack = allButTodaysTimeLeft - onTrackTime - today;
+      const fullDay = Math.min(completeDay - today, timeInWeek - full);
 
-      outputHeader([amortisedTimeLeft, timeOffTrack], timeInWeek - full);
+      outputHeader([amortisedTimeLeft, timeOffTrack, fullDay], timeInWeek - full);
       break;
     }
   }
@@ -259,6 +258,12 @@ const displayTimes = me => {
     console.log(`Σ:\t${outputUnix(full, true)}`);
     console.log(`T-:\t${outputUnix(completeWeek - full, true)}`);
   }
+
+  // TODO: display current project
+  // TODO: display project summary for the week
+  // TODO: allow muting of a project as it relates to time
+  //       (if you're on a muted project just show emoji but not time)
+  //       (it would still show in this project summary)
 };
 
 const avatarChoice = () => {
