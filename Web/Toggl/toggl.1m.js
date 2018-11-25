@@ -9,6 +9,10 @@
 // <bitbar.dependencies>node</bitbar.dependencies>
 const fs = require('fs');
 
+// TODO: Add month-long work leveling
+//   You're supposed to work N hours a week, but also N*M hours a month
+//   Take longer / shorter weeks into account all the way to the month
+
 /* jshint -W100 */
 const AVATARS = {
   '👶': ['👶', '👶🏻', '👶🏼', '👶🏽', '👶🏾', '👶🏿'],
@@ -94,6 +98,8 @@ const config = (() => {
   };
 })();
 
+const relativeThreshold = 15 * 60; // TODO: configurable?
+
 const endOutput = () => {
   if (configDirty) {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
@@ -145,15 +151,13 @@ const startOfWeek = () => {
 const avatar = () => config.avatar === 'avatar' ?  randomAvatar() : config.avatar;
 
 const outputHeader = (timeDay, timeWeek) => {
-  const relativeThreshold = 60 * 60; // TODO: configurable?
-
   let daySection; // Output string
   let dayAmount; // single amount, if possible
   if (typeof timeDay === 'object') {
     const max = Math.max(...timeDay);
     const min = Math.min(...timeDay);
     if ((max - min) > relativeThreshold) {
-      daySection = `${outputUnix(min)}…${outputUnix(max)}`;
+      daySection = `${outputUnix(min)} — ${outputUnix(max)}`;
     } else {
       dayAmount = min + Math.round((max - min) / 2);
       daySection = `${outputUnix(dayAmount)}`;
@@ -179,28 +183,51 @@ const displayTimes = me => {
   let full = 0,
       today = 0;
   const days = [];
-  let currentlyWorking = false;
 
-  (me.data.time_entries || []).forEach(entry => {
+  let currentlyWorking,
+      currentWid,
+      currentPid;
+
+  const timeByWidByPid = {};
+
+  (me.data.time_entries || []).forEach(({start, duration:entryDuration, wid, pid}) => {
     // TODO: deal with partial entries that cross over midnight
     //       (both daily and weekly)
     // TODO: respect configured start of week in me.beginning_of_week
+    //
+    start = new Date(start);
 
     let duration;
-    if (entry.duration > 0) {
-      duration = entry.duration;
+    if (entryDuration > 0) {
+      duration = entryDuration;
     } else {
-      duration = unix(NOW) - unix(new Date(entry.start));
+      duration = unix(NOW) - unix(start);
       currentlyWorking = true;
+      currentWid = wid;
+      currentPid = pid;
     }
 
-    if (unix(new Date(entry.start)) > startOfWeek()) {
+    if (!timeByWidByPid[wid]) {
+      timeByWidByPid[wid] = {};
+    }
+    if (!timeByWidByPid[wid][pid]) {
+      timeByWidByPid[wid][pid] = 0;
+    }
+    timeByWidByPid[wid][pid] += duration;
+
+    if (unix(start) > startOfWeek()) {
       full += duration;
-      const day = new Date(entry.start).getDay();
-      days[day] = (days[day] || 0) + duration;
+      let day = start.getDay();
+      const end = new Date(start.getTime() + duration * 1000);
+      if (day === end.getDay()) {
+        days[day] = (days[day] || 0) + duration;
+      } else {
+        // TODO: We want to split a duration over midnights and distribute them to the correct days
+        days[day] = (days[day] || 0) + duration;
+      }
     }
 
-    if (unix(new Date(entry.start)) > unixToday) {
+    if (unix(start) > unixToday) {
       today += duration;
     }
   });
@@ -248,6 +275,11 @@ const displayTimes = me => {
     }
   }
 
+  // TODO: add end day time, either as its own option, or as a custom estimate
+  //       in the menu.
+  //       I think having it as an option might be a bit more chill, you don't
+  //       see it counting down, just an idea of when knocking off time is
+
   // Have to filter first before showing length because Monday is idx 1 / length 2
   if (days.filter(d => !!d).length > 1) {
     console.log('---');
@@ -259,7 +291,11 @@ const displayTimes = me => {
     console.log(`T-:\t${outputUnix(completeWeek - full, true)}`);
   }
 
-  // TODO: display current project
+  // TODO: figure out how we want to pull in wids and pid labels, and if it's worth the extra api calls
+  // console.log('---');
+  // console.log(`${currentWid} :: ${currentPid}`);
+  // console.log(outputUnix(timeByWidByPid[currentWid][currentPid], true));
+
   // TODO: display project summary for the week
   // TODO: allow muting of a project as it relates to time
   //       (if you're on a muted project just show emoji but not time)
@@ -309,7 +345,7 @@ const input = () => {
 
 const output = () => {
   require('https').get({
-    hostname: 'www.toggl.com',
+    hostname: 'toggl.com',
     // NB: since is "edited since", and so isn't really reliable
     path: `/api/v8/me?with_related_data=true&since=${startOfWeek()}`,
     auth: `${config.apiToken}:api_token`
@@ -332,6 +368,8 @@ const output = () => {
         console.log(':-(');
         console.log('---');
         console.log(error);
+        console.log('---');
+        console.log(body);
         endOutput();
       }
     });
