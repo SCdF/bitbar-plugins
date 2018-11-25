@@ -1,7 +1,7 @@
 #!/usr/bin/env /usr/local/bin/node
 
 // <bitbar.title>Twitch Following</bitbar.title>
-// <bitbar.version>v2.2</bitbar.version>
+// <bitbar.version>v2.3</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
 // <bitbar.desc>Shows which channels you follow are live, what they're playing, for how long etc. Lets you watch them with streamlink and open the chat in your browser. Based on the play-with-livestreamer bitbar plugin. Requires a Twitch account.</bitbar.desc>
@@ -10,6 +10,9 @@
 
 // TOOD: map response into a datastructure we can both use and store
 //       this helps with DRY, since it removes indirection in the native format
+// TODO: store options in a file so people don't have to edit this.
+//       This will require that we allow editing via the UI. Worst case a link
+//       open it in an editor, best case toggling favourites per stream etc
 // TODO: DRY error handling better
 //       DRY usages of :-( everywhere
 //       Work out how to get HTTP code out of request, error cleaner on that
@@ -32,29 +35,17 @@ const OPTIONS = {
   //
   // Leave as false to count everyone
   // An empty list means no one
-  // Otherwise list twitch stream usernames, as strings or regex.
+  // Otherwise list twitch stream usernames, as strings, or regex, or a function
+  // predicate that evaluates over the stream object
   // e.g.
   // FAVOURITES: [
   //   'manvsgame',
-  //   /evo[0-9]/
+  //   /evo[0-9]/,
+  //   stream => stream.channel.name === 'itmejp' && stream.channel.status.includes('Dropped Frames')
   // ],
-  // Would show MANvsGAME as a favourite, along with any of the evo rooms
+  // Would show MANvsGAME as a favourite, along with any of the evo rooms, along
+  // with itmeJP if he's streaming Dropped Frames
   FAVOURITES: false,
-  // False to disable, otherwise specify the maximum number of viewers allowed
-  // to class a streamer as an underdog, and treat them as a favourite.
-  // Only works if FAVOURITES is in use.
-  // FIXME: UNDERDOG currently makes little sense
-  //        When streamers come online they will have a small number of watchers
-  //        We need to detect low watchers but on longer running streams
-  //        And maybe then notify?
-  //        Or just drop the concept?
-  //        Or pick a different metric such as followers?
-  UNDERDOG: false,
-  // False to disable, otherwise specify the minimum number of viewers allowed
-  // to class a streamer as really popular, and treat them as a favourite
-  // Only works if FAVOURITES is in use.
-  // TODO: implement OVERDOG
-  OVERDOG: 10000,
   // True if you want native OSX notifications when a favourite goes live
   // (if favourites are disabled notifications will work on everyone)
   NOTIFICATIONS: true,
@@ -384,8 +375,8 @@ function outputForStream(stream) {
       `--👥 chat | href=https://twitch.tv/${channel.name}/chat?popout=`,
       `--👤 chit.chat | href=https://chitchat.ma.pe/${channel.name}`,
       `-----`,
-      importantStreamer(stream) ? `--${stream.channel.game}|size=10 color=#888888` : undefined,
-      `--${channel.status} | color=grey size=10 length=30`,
+      isFavourite(stream) ? `--${stream.channel.game}|size=10 color=#888888` : undefined,
+      `--${channel.status.replace(/\n/g, '')} | color=grey size=10 length=30`,
       `--👤 ${stream.viewers} live for ${timeLive}| size=10`,
       ''].join('\n');
 }
@@ -397,12 +388,12 @@ function endOutput() {
 
 const streamName = stream => stream.channel.name;
 const live = stream => stream.stream_type === 'live';
-const isUnderdog = stream => OPTIONS.FAVOURITES && OPTIONS.UNDERDOG && stream.viewers <= OPTIONS.UNDERDOG;
 const isFavourite = stream =>
-  OPTIONS.FAVOURITES && OPTIONS.FAVOURITES.find(f => streamName(stream).match(f)) &&
+  OPTIONS.FAVOURITES && OPTIONS.FAVOURITES.find(f =>
+    typeof f === 'function' ? f(stream) :
+    f instanceof RegExp ? streamName(stream).match(f) :
+    streamName(stream) === f) &&
   (OPTIONS.FAVOURITES_WITH_VOD || live(stream));
-const importantStreamer = stream =>
-  isFavourite(stream) || isUnderdog(stream);
 
 function notifications(streams) {
   const TEMP_FILE = '/tmp/livestreamer-now-playing.json';
@@ -418,7 +409,7 @@ function notifications(streams) {
 
   if (fs.existsSync(TEMP_FILE)) {
     const status = statusFile();
-    const currentStreamers = streams.filter(importantStreamer);
+    const currentStreamers = streams.filter(isFavourite);
     const changedStreams = currentStreamers.filter(stream =>
       // Just went live
       !Object.keys(status.live).includes(streamName(stream)) ||
@@ -463,7 +454,7 @@ function handleResponse(body) {
   const importantStreams = [];
 
   onlineStreams.forEach(stream => {
-    if (importantStreamer(stream)) {
+    if (isFavourite(stream)) {
       return importantStreams.push(stream);
     }
 
