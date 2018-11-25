@@ -1,7 +1,7 @@
 #!/usr/bin/env /usr/local/bin/node
 
 // <bitbar.title>Habitica</bitbar.title>
-// <bitbar.version>v1.1</bitbar.version>
+// <bitbar.version>v1.2</bitbar.version>
 // <bitbar.author>Stefan du Fresne</bitbar.author>
 // <bitbar.author.github>SCdF</bitbar.author.github>
 // <bitbar.desc>Allows you to manage your Habitica tasks, habits and to-dos. See: habitica.com</bitbar.desc>
