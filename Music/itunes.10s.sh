@@ -17,22 +17,7 @@
 # <bitbar.desc>Display currently playing iTunes song with artwork. Play/pause, skip forward, skip backward.</bitbar.desc>
 # <bitbar.image>http://i.imgur.com/lBfoFdY.png</bitbar.image>
 
-if [ "$1" = 'launch' ]; then
-  osascript -e 'tell application "iTunes" to activate'
-  exit
-fi
-
-if [ "$1" = 'open' ]; then
-  osascript -e 'tell application "iTunes" to reopen'
-  osascript -e 'tell application "iTunes" to activate'
-  exit
-fi
-
 if [ "$(osascript -e 'application "iTunes" is running')" = "false" ]; then
-  # echo "♫ | size=12"
-  # echo "---"
-  # echo "iTunes is not running"
-  # echo "Launch iTunes | bash='$0' param1=launch terminal=false"
   exit
 fi
 

@@ -16,7 +16,7 @@
 # <bitbar.image>http://i.imgur.com/y1SZwfq.png</bitbar.image>
 
 # Comment the following line to disable showing times.
-SHOW_TIME=1
+# SHOW_TIME=1
 
 # By default we remove anything after " - ", as it usually is stuff like
 # "Remastered", "Single Version", or other garbage that Spotify likes to
@@ -53,10 +53,10 @@ if [ "$1" = 'lyrics' ]; then
 fi
 
 if [ "$(osascript -e 'application "Spotify" is running')" = "false" ]; then
-  echo "♫"
-  echo "---"
-  echo "Spotify is not running"
-  echo "Launch Spotify | bash='$0' param1=launch terminal=false"
+  # echo "♫"
+  # echo "---"
+  # echo "Spotify is not running"
+  # echo "Launch Spotify | bash='$0' param1=launch terminal=false"
   exit
 fi
 
@@ -104,7 +104,8 @@ fi
 if [ "$state" = "playing" ]; then
   state_icon="▶"
 else
-  state_icon="❚❚"
+  # state_icon="❚❚"
+  exit
 fi
 
 if [[ $CLEAN_TRACK_NAMES ]]; then
